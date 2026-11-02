@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, CircleDollarSign, Clock3, FileText, ReceiptText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Ban, CalendarDays, ChevronDown, CircleDollarSign, Clock3, FileText, Info, ListChecks, ReceiptText, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,15 +139,84 @@ function QuoteCard({ quote }: { quote: QuoteView }) {
   const assumptions = stringArray(quote.assumptionsJson);
   const exclusions = stringArray(quote.exclusionsJson);
   const presented = quote.state === "PRESENTED";
-  return <Card className="mt-6 overflow-hidden border-violet-400/20"><div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_260px]"><div><div className="flex flex-wrap items-center gap-3"><Badge variant={quote.state === "ACCEPTED" ? "success" : "default"}>Quote {quote.state.toLowerCase()}</Badge><Badge variant="neutral">Version {quote.version}</Badge></div><h2 className="mt-5 text-2xl tracking-[-.04em]">Transparent project quote</h2><p className="mt-2 text-sm leading-6 text-zinc-500">Based on current marketplace observations. Supplier prices and availability are not reserved until the later funded procurement step.</p><div className="mt-6 grid gap-5 sm:grid-cols-2"><QuoteList title="Assumptions" items={assumptions} /><QuoteList title="Exclusions" items={exclusions} /></div></div><div className="rounded-2xl border border-white/[.08] bg-black/25 p-5"><ReceiptText className="size-5 text-violet-300" /><p className="mt-5 font-mono text-[10px] uppercase tracking-[.14em] text-zinc-600">Total customer price</p><p className="mt-2 text-3xl font-medium tracking-[-.05em]">{formatBudget(quote.customerTotalMinor, quote.currency)}</p><dl className="mt-6 space-y-3 border-t border-white/[.08] pt-5 text-xs"><PriceLine label="Observed supplier cost" value={formatBudget(quote.executionCostMinor, quote.currency)} /><PriceLine label="Execution reserve" value={formatBudget(quote.reserveMinor, quote.currency)} /><PriceLine label="Auvra service fee" value={formatBudget(quote.feeMinor, quote.currency)} /></dl><p className="mt-5 text-[11px] leading-5 text-zinc-600">{quote.state === "ACCEPTED" && quote.acceptedAt ? `Accepted ${quote.acceptedAt.toLocaleString()}. Demo funding is available below.` : `Expires ${quote.expiresAt.toLocaleString()}.`}</p></div></div>{presented && <QuoteActions quoteId={quote.id} />}</Card>;
+  return (
+    <Card className="mt-6 overflow-hidden border-violet-400/20 bg-[#111115]">
+      <div className="relative overflow-hidden border-b border-white/[.08] px-5 py-7 sm:px-8 sm:py-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-violet-600/15 blur-3xl" />
+        <div className="relative">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={quote.state === "ACCEPTED" ? "success" : "default"}>Quote {quote.state.toLowerCase()}</Badge>
+            <Badge variant="neutral">Version {quote.version}</Badge>
+          </div>
+          <h2 className="mt-5 text-[1.7rem] font-medium leading-tight tracking-[-.045em] text-white sm:text-3xl">Your project quote</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">A clear price for the proposed scope, with the costs and conditions in one place.</p>
+          <div className="mt-5 flex max-w-2xl items-start gap-3 rounded-xl border border-violet-400/15 bg-violet-400/[.06] px-4 py-3">
+            <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-violet-300" />
+            <p className="text-xs leading-5 text-zinc-300">Supplier prices and availability are observed, not reserved. Funding and hiring happen in a later step.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <aside className="relative overflow-hidden rounded-[1.5rem] border border-violet-300/20 bg-[linear-gradient(145deg,rgba(108,65,190,.22),rgba(24,20,34,.94)_55%,rgba(15,15,19,1))] p-5 shadow-[0_22px_60px_rgba(0,0,0,.2)] sm:p-6 lg:order-2">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-36 rounded-full bg-violet-400/15 blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center justify-between gap-3">
+              <span className="grid size-10 place-items-center rounded-xl border border-violet-300/15 bg-violet-300/10"><ReceiptText aria-hidden="true" className="size-5 text-violet-200" /></span>
+              <span className="rounded-full border border-white/10 bg-white/[.05] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[.12em] text-zinc-300">{quote.currency}</span>
+            </div>
+            <p className="mt-6 font-mono text-[10px] uppercase tracking-[.16em] text-violet-200/80">Total project price</p>
+            <p className="mt-2 break-words text-4xl font-medium tracking-[-.055em] text-white sm:text-[2.65rem]">{formatBudget(quote.customerTotalMinor, quote.currency)}</p>
+            <p className="mt-2 text-xs leading-5 text-zinc-400">Complete quoted price for this version of the scope.</p>
+            <dl className="mt-6 space-y-3 border-t border-white/10 pt-5 text-xs">
+              <PriceLine label="Observed supplier cost" value={formatBudget(quote.executionCostMinor, quote.currency)} />
+              <PriceLine label="Execution reserve" value={formatBudget(quote.reserveMinor, quote.currency)} />
+              <PriceLine label="Auvra service fee" value={formatBudget(quote.feeMinor, quote.currency)} />
+            </dl>
+            <p className="mt-6 border-t border-white/10 pt-4 text-xs leading-5 text-zinc-400">{quote.state === "ACCEPTED" && quote.acceptedAt ? `Accepted ${quote.acceptedAt.toLocaleString()}. Demo funding is available below.` : `Quote expires ${quote.expiresAt.toLocaleString()}.`}</p>
+          </div>
+        </aside>
+
+        <div className="space-y-4 lg:order-1">
+          <div>
+            <h3 className="text-base font-medium text-zinc-100">Scope details</h3>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">Review what this quote assumes and what it leaves out before approving.</p>
+          </div>
+          <QuoteList kind="assumptions" items={assumptions} />
+          <QuoteList kind="exclusions" items={exclusions} />
+        </div>
+      </div>
+
+      {presented && <QuoteActions quoteId={quote.id} />}
+    </Card>
+  );
 }
 
-function QuoteList({ title, items }: { title: string; items: string[] }) {
-  return <div><p className="font-mono text-[10px] uppercase tracking-[.14em] text-zinc-600">{title}</p><ul className="mt-3 space-y-2">{items.map((item) => <li key={item} className="flex gap-2 text-xs leading-5 text-zinc-400"><span className="mt-2 size-1 shrink-0 rounded-full bg-violet-400" />{item}</li>)}</ul></div>;
+function QuoteList({ kind, items }: { kind: "assumptions" | "exclusions"; items: string[] }) {
+  const isAssumptions = kind === "assumptions";
+  return (
+    <details className="group overflow-hidden rounded-2xl border border-white/[.09] bg-white/[.025] open:border-violet-400/20">
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-400 sm:px-5 [&::-webkit-details-marker]:hidden">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-300">
+          {isAssumptions ? <ListChecks aria-hidden="true" className="size-4" /> : <Ban aria-hidden="true" className="size-4" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-zinc-100">{isAssumptions ? "Assumptions" : "Exclusions"}</span>
+          <span className="mt-0.5 block text-xs text-zinc-500">{isAssumptions ? "What the price is based on" : "What is outside this scope"}</span>
+        </span>
+        <span className="rounded-full bg-white/[.06] px-2 py-0.5 font-mono text-[10px] text-zinc-400">{items.length}</span>
+        <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-zinc-500 transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <ol className="space-y-3 border-t border-white/[.07] px-4 py-4 sm:px-5">
+        {items.length === 0 && <li className="text-xs text-zinc-500">None listed for this quote.</li>}
+        {items.map((item, index) => <li key={`${kind}-${index}`} className="flex items-start gap-3 text-[13px] leading-6 text-zinc-300"><span className="min-w-5 shrink-0 font-mono text-[10px] text-violet-300/80">{String(index + 1).padStart(2, "0")}</span><span>{item}</span></li>)}
+      </ol>
+    </details>
+  );
 }
 
 function PriceLine({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between gap-3"><dt className="text-zinc-600">{label}</dt><dd className="text-zinc-300">{value}</dd></div>;
+  return <div className="flex items-start justify-between gap-3"><dt className="text-zinc-400">{label}</dt><dd className="shrink-0 font-medium tabular-nums text-zinc-100">{value}</dd></div>;
 }
 
 function stringArray(value: unknown) {
