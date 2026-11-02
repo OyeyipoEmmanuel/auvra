@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: auvra
+      POSTGRES_PASSWORD: auvra_local
+      POSTGRES_DB: auvra
+    ports: ["55432:5432"]
+    volumes: ["auvra_postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auvra"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7.4-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["auvra_redis:/data"]
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: auvra_local
+      MINIO_ROOT_PASSWORD: auvra_local_secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["auvra_minio:/data"]
+
+volumes:
+  auvra_postgres:
+  auvra_redis:
+  auvra_minio:

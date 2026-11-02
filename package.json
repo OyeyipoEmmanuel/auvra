@@ -1,0 +1,35 @@
+{
+  "name": "auvra",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.26.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev:web": "node scripts/ensure-local-db.mjs && pnpm --filter @auvra/web dev",
+    "build:web": "pnpm --filter @auvra/web build",
+    "check:web": "pnpm --filter @auvra/web check",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate",
+    "prisma:format": "prisma format",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "market:list": "tsx src/marketplace/list-services.ts",
+    "market:connect": "tsx src/marketplace/connect-buyer.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@prisma/client": "7.10.0",
+    "dotenv": "17.2.3",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@types/node": "24.10.1",
+    "prisma": "7.10.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.0.4"
+  }
+}

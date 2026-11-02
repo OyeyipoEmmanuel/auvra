@@ -1,0 +1,625 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  OPERATOR
+  ADMIN
+}
+
+enum RequestState {
+  DRAFT
+  SUBMITTED
+  ANALYZING
+  NEEDS_CLARIFICATION
+  SCOPED
+  QUOTED
+  APPROVED
+  AWAITING_FUNDS
+  FUNDED
+  PROJECT_CREATED
+  UNSUPPORTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum ProjectState {
+  PLANNING
+  PROCUREMENT
+  RUNNING
+  QA
+  CUSTOMER_REVIEW
+  DELIVERED
+  CLOSED
+  BLOCKED
+  REVISION
+  DISPUTED
+  CANCELLED
+  FAILED
+}
+
+enum SupplierJobState {
+  PROPOSED
+  APPROVED_TO_HIRE
+  CREATE_PENDING
+  HIRED
+  ACTIVE
+  SUBMITTED
+  QA_PASSED
+  ACCEPTED
+  QA_FAILED
+  REVISION_REQUESTED
+  CANCELLED
+  FAILED
+  EXPIRED
+}
+
+enum PaymentState {
+  CREATED
+  PENDING
+  VERIFIED
+  ALLOCATED
+  RECONCILED
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+  DISPUTED
+}
+
+enum QuoteState {
+  DRAFT
+  PRESENTED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum ReceiptAnchorState {
+  PENDING
+  SUBMITTED
+  CONFIRMED
+  RETRY_PENDING
+  RECONCILIATION_REQUIRED
+  FAILED
+}
+
+enum ReceiptKind {
+  PROJECT
+  SETTLEMENT
+}
+
+enum FileScanState {
+  PENDING
+  CLEAN
+  REJECTED
+  FAILED
+}
+
+enum ApprovalState {
+  PENDING
+  APPROVED
+  REJECTED
+  CONSUMED
+  EXPIRED
+  CANCELLED
+}
+
+enum OutboxState {
+  PENDING
+  PUBLISHED
+  RETRY_PENDING
+  DEAD_LETTER
+}
+
+enum LedgerSide {
+  DEBIT
+  CREDIT
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  requests      ServiceRequest[]
+  files         StoredFile[]
+  projects      Project[]
+  payments      CustomerPayment[]
+  notifications Notification[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ServiceRequest {
+  id              String       @id @default(uuid()) @db.Uuid
+  customerId      String       @db.Uuid
+  state           RequestState @default(DRAFT)
+  rawBrief        String
+  desiredOutcome  String?
+  budgetMinor     BigInt?
+  budgetCurrency  String?
+  deadline        DateTime?
+  constraintsJson Json?
+  analysisJson    Json?
+  version         Int          @default(1)
+  submittedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  customer User            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  answers  RequestAnswer[]
+  files    StoredFile[]
+  quotes   Quote[]
+  project  Project?
+  supplierMatches SupplierMatch[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([state, updatedAt])
+}
+
+model RequestAnswer {
+  id         String   @id @default(uuid()) @db.Uuid
+  requestId  String   @db.Uuid
+  round      Int
+  questionId String
+  question   String
+  answer     String
+  createdAt  DateTime @default(now())
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, round, questionId])
+}
+
+model StoredFile {
+  id          String        @id @default(uuid()) @db.Uuid
+  ownerId     String        @db.Uuid
+  requestId   String?       @db.Uuid
+  objectKey   String        @unique
+  fileName    String
+  contentType String
+  sizeBytes   BigInt
+  sha256      String
+  scanState   FileScanState @default(PENDING)
+  createdAt   DateTime      @default(now())
+
+  owner   User            @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  request ServiceRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([requestId])
+}
+
+model Project {
+  id          String       @id @default(uuid()) @db.Uuid
+  requestId   String       @unique @db.Uuid
+  customerId  String       @db.Uuid
+  state       ProjectState @default(PLANNING)
+  version     Int          @default(1)
+  startedAt   DateTime?
+  deliveredAt DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  request      ServiceRequest    @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  customer     User              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  tasks        ProjectTask[]
+  supplierJobs SupplierJob[]
+  payments     CustomerPayment[]
+  artifacts    Artifact[]
+  qaReviews    QaReview[]
+  receipts     ReceiptAnchor[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([state, updatedAt])
+}
+
+model ProjectTask {
+  id                  String    @id @default(uuid()) @db.Uuid
+  projectId           String    @db.Uuid
+  taskKey             String
+  title               String
+  objective           String
+  inputContractJson   Json
+  outputContractJson  Json
+  dependenciesJson    Json
+  capabilitiesJson    Json
+  validationRulesJson Json
+  status              String
+  budgetMinor         BigInt
+  budgetCurrency      String
+  attemptCount        Int       @default(0)
+  retryLimit          Int       @default(0)
+  deadline            DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplierJobs SupplierJob[]
+
+  @@unique([projectId, taskKey])
+  @@index([projectId, status])
+}
+
+model Quote {
+  id                   String     @id @default(uuid()) @db.Uuid
+  requestId            String     @db.Uuid
+  version              Int
+  state                QuoteState @default(DRAFT)
+  currency             String
+  decimals             Int
+  customerTotalMinor   BigInt
+  supplierCapMinor     BigInt
+  executionCostMinor   BigInt
+  reserveMinor         BigInt
+  feeMinor             BigInt
+  estimatedMarginMinor BigInt
+  scopeJson            Json
+  assumptionsJson      Json
+  exclusionsJson       Json
+  termsJson            Json
+  expiresAt            DateTime
+  presentedAt          DateTime?
+  acceptedAt           DateTime?
+  createdAt            DateTime   @default(now())
+
+  request  ServiceRequest    @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  payments CustomerPayment[]
+
+  @@unique([requestId, version])
+  @@index([requestId, state])
+}
+
+model SupplierServiceObservation {
+  id                String    @id @default(uuid()) @db.Uuid
+  provider          String
+  externalServiceId String
+  externalAgentId   String?
+  name              String
+  category          String?
+  capabilitiesJson  Json
+  pricingJson       Json
+  availabilityJson  Json
+  rawReference      String?
+  observedAt        DateTime
+  expiresAt         DateTime?
+
+  matches SupplierMatch[]
+
+  @@unique([provider, externalServiceId, observedAt])
+  @@index([provider, externalServiceId, observedAt(sort: Desc)])
+}
+
+model SupplierMatch {
+  id                   String    @id @default(uuid()) @db.Uuid
+  requestId            String    @db.Uuid
+  planTaskKey          String
+  taskId               String?   @db.Uuid
+  serviceObservationId String    @db.Uuid
+  eligible             Boolean
+  score                Decimal?  @db.Decimal(8, 4)
+  reasonsJson          Json
+  selectedAt           DateTime?
+  createdAt            DateTime  @default(now())
+
+  request            ServiceRequest             @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  serviceObservation SupplierServiceObservation @relation(fields: [serviceObservationId], references: [id], onDelete: Restrict)
+
+  @@unique([requestId, planTaskKey, serviceObservationId])
+  @@index([requestId, planTaskKey, eligible])
+}
+
+model SupplierJob {
+  id                String           @id @default(uuid()) @db.Uuid
+  projectId         String           @db.Uuid
+  taskId            String           @db.Uuid
+  provider          String
+  externalServiceId String
+  externalJobId     String?
+  state             SupplierJobState @default(PROPOSED)
+  currency          String
+  authorizedMinor   BigInt
+  committedMinor    BigInt           @default(0)
+  settledMinor      BigInt           @default(0)
+  requestHash       String?
+  rawStatus         String?
+  lastObservedAt    DateTime?
+  version           Int              @default(1)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  task      ProjectTask @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  artifacts Artifact[]
+
+  @@unique([provider, externalJobId])
+  @@index([projectId, state])
+  @@index([taskId])
+}
+
+model Artifact {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @db.Uuid
+  supplierJobId String?  @db.Uuid
+  kind          String
+  objectKey     String?
+  externalUrl   String?
+  sha256        String?
+  metadataJson  Json
+  createdAt     DateTime @default(now())
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplierJob SupplierJob? @relation(fields: [supplierJobId], references: [id], onDelete: SetNull)
+  qaReviews   QaReview[]
+
+  @@index([projectId, createdAt])
+}
+
+model QaReview {
+  id             String   @id @default(uuid()) @db.Uuid
+  projectId      String   @db.Uuid
+  artifactId     String?  @db.Uuid
+  policyVersion  String
+  result         String
+  evidenceJson   Json
+  violationsJson Json
+  retryCount     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact Artifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+}
+
+model CustomerPayment {
+  id                String       @id @default(uuid()) @db.Uuid
+  customerId        String       @db.Uuid
+  quoteId           String       @db.Uuid
+  projectId         String?      @db.Uuid
+  provider          String
+  providerReference String?
+  state             PaymentState @default(CREATED)
+  currency          String
+  amountMinor       BigInt
+  verifiedAt        DateTime?
+  allocatedAt       DateTime?
+  reconciledAt      DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  customer User     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  quote    Quote    @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  project  Project? @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerReference])
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([state, updatedAt])
+}
+
+model LedgerAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String
+  asset       String
+  name        String
+  accountType String
+  createdAt   DateTime @default(now())
+
+  entries LedgerEntry[]
+
+  @@unique([code, asset])
+}
+
+model LedgerTransaction {
+  id                String   @id @default(uuid()) @db.Uuid
+  transactionType   String
+  asset             String
+  externalReference String?
+  projectId         String?  @db.Uuid
+  paymentId         String?  @db.Uuid
+  supplierJobId     String?  @db.Uuid
+  metadataJson      Json
+  postedAt          DateTime @default(now())
+
+  entries LedgerEntry[]
+
+  @@index([projectId, postedAt])
+  @@index([paymentId])
+  @@index([supplierJobId])
+}
+
+model LedgerEntry {
+  id            String     @id @default(uuid()) @db.Uuid
+  transactionId String     @db.Uuid
+  accountId     String     @db.Uuid
+  side          LedgerSide
+  amountMinor   BigInt
+  createdAt     DateTime   @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  account     LedgerAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([transactionId])
+  @@index([accountId, createdAt])
+}
+
+model PolicyVersion {
+  id          String    @id @default(uuid()) @db.Uuid
+  policyKey   String
+  version     Int
+  rulesJson   Json
+  active      Boolean   @default(false)
+  createdById String?   @db.Uuid
+  activatedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([policyKey, version])
+  @@index([policyKey, active])
+}
+
+model Approval {
+  id              String        @id @default(uuid()) @db.Uuid
+  approvalType    String
+  state           ApprovalState @default(PENDING)
+  requestedById   String?       @db.Uuid
+  decidedById     String?       @db.Uuid
+  projectId       String?       @db.Uuid
+  supplierJobId   String?       @db.Uuid
+  policyVersionId String?       @db.Uuid
+  amountMinor     BigInt?
+  currency        String?
+  reason          String
+  expiresAt       DateTime?
+  decidedAt       DateTime?
+  consumedAt      DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@index([state, expiresAt])
+  @@index([projectId])
+  @@index([supplierJobId])
+}
+
+model AuditEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  actorType        String
+  actorId          String?
+  eventType        String
+  requestId        String?  @db.Uuid
+  projectId        String?  @db.Uuid
+  supplierJobId    String?  @db.Uuid
+  paymentId        String?  @db.Uuid
+  inputHash        String?
+  reason           String?
+  externalRefsJson Json?
+  metadataJson     Json
+  occurredAt       DateTime @default(now())
+
+  @@index([requestId, occurredAt])
+  @@index([projectId, occurredAt])
+  @@index([eventType, occurredAt])
+}
+
+model OutboxEvent {
+  id             String      @id @default(uuid()) @db.Uuid
+  aggregateType  String
+  aggregateId    String
+  eventType      String
+  payloadJson    Json
+  idempotencyKey String      @unique
+  state          OutboxState @default(PENDING)
+  attempts       Int         @default(0)
+  availableAt    DateTime    @default(now())
+  publishedAt    DateTime?
+  lastError      String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([state, availableAt])
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+}
+
+model IdempotencyRecord {
+  id             String    @id @default(uuid()) @db.Uuid
+  scope          String
+  idempotencyKey String
+  requestHash    String
+  responseJson   Json?
+  statusCode     Int?
+  lockedUntil    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([scope, idempotencyKey])
+  @@index([lockedUntil])
+}
+
+model ReceiptAnchor {
+  id                  String             @id @default(uuid()) @db.Uuid
+  projectId           String             @db.Uuid
+  kind                ReceiptKind
+  state               ReceiptAnchorState @default(PENDING)
+  schemaVersion       Int
+  referenceHash       String
+  canonicalRecordHash String
+  providerReceiptHash String?
+  network             String
+  contractAccount     String?
+  signerAccount       String?
+  transactionHash     String?
+  blockReference      String?
+  submittedAt         DateTime?
+  confirmedAt         DateTime?
+  lastReconciledAt    DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([kind, referenceHash])
+  @@index([projectId, kind])
+  @@index([state, updatedAt])
+}
