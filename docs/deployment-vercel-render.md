@@ -1,5 +1,9 @@
 # Vercel and Render deployment
 
+## If you choose Prisma Postgres through the Vercel integration
+
+Prisma Postgres replaces Render PostgreSQL in this setup. Connect the database to the Auvra Vercel project for **Production** and leave **Custom Prefix** empty. The integration supplies `DATABASE_URL` for Prisma CLI migrations and `DATABASE_URL_POOLED` for application traffic; `apps/web/lib/prisma.ts` prefers the pooled URL. Use another database for Preview or Development so they do not share production records. Render can still host the future worker, which must be given its own database connection secret when built.
+
 ## What can be deployed now
 
 Deploy `apps/web` as one Next.js project on Vercel and PostgreSQL as a managed database on Render. The current app's Auth.js callback, `/api/**` routes, manager analysis, supplier discovery, quotes, and sandbox funding all run inside the Next.js app, so they will execute on Vercel. There is no separate Render API service in this repository yet. A future durable orchestration worker belongs on Render.
