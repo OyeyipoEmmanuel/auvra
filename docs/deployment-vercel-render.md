@@ -2,7 +2,7 @@
 
 ## If you choose Prisma Postgres through the Vercel integration
 
-Prisma Postgres replaces Render PostgreSQL in this setup. Connect the database to the Auvra Vercel project for **Production** and leave **Custom Prefix** empty. The integration supplies `DATABASE_URL` for Prisma CLI migrations and `DATABASE_URL_POOLED` for application traffic; `apps/web/lib/prisma.ts` prefers the pooled URL. Use another database for Preview or Development so they do not share production records. Render can still host the future worker, which must be given its own database connection secret when built.
+Prisma Postgres replaces Render PostgreSQL in this setup. Connect the database to the Auvra Vercel project for **Production** and leave **Custom Prefix** empty. The integration supplies `DATABASE_URL` for Prisma CLI migrations and `DATABASE_URL_POOLED` for application traffic; `apps/web/lib/prisma.ts` prefers the pooled URL. The production web build runs the committed migrations before `next build` and fails if the database URL is missing or local. Use another database for Preview or Development so they do not share production records. Render can still host the future worker, which must be given its own database connection secret when built.
 
 ## What can be deployed now
 
