@@ -24,7 +24,9 @@ The current product foundation includes:
 - explicit request, project, supplier-job, payment, receipt, audit, and ledger state models;
 - local PostgreSQL, Redis, and S3-compatible storage services.
 
-Use `pnpm check:web` for TypeScript validation and `pnpm build:web` for a production build. The Manager uses category-aware rules to create a plan, then checks the live supplier catalog before offering a quote. Supplier availability is observed, not reserved.
+Use `pnpm check:web` for TypeScript validation and `pnpm build:web` for a production build. Both commands generate Prisma Client from the repository schema before type checking. The Manager uses category-aware rules to create a plan, then checks the live supplier catalog before offering a quote. Supplier availability is observed, not reserved.
+
+For the current Vercel app and Render PostgreSQL setup, see [the deployment guide](docs/deployment-vercel-render.md).
 
 In `DEMO_SANDBOX`, a customer can accept a quote and explicitly create a demo funded project. This records `DEMO_USDC` payment and balanced ledger entries and creates planned tasks. It does not move NEAR testnet tokens or real USDC, hire agents, or represent real revenue. Verified testnet funding and real procurement are separate future integrations.
 
