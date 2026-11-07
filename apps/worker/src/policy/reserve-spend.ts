@@ -13,6 +13,7 @@ export type MarketplaceFundingProof = {
 type ReserveInput = {
   projectId: string;
   taskId: string;
+  supplierJobId?: string;
   serviceId: string;
   amountMinor: bigint;
   currency: string;
@@ -124,6 +125,7 @@ export async function reserveSupplierSpend(
         !approval.consumedAt &&
         (!approval.expiresAt || approval.expiresAt > now) &&
         approval.projectId === input.projectId &&
+        (!input.supplierJobId || approval.supplierJobId === input.supplierJobId) &&
         approval.policyVersionId === policyRecord.id &&
         approval.currency === input.currency &&
         approval.amountMinor !== null &&

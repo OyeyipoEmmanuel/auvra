@@ -118,10 +118,12 @@ M1–M5 local verification: unit tests, web/worker/root type checks, formatting,
 - [x] Implement PostgreSQL outbox claims with leases, at-least-once BullMQ publication, retries, and dead-letter state; local database tests pass.
 - [x] Implement dependency-aware task scheduling, optimistic task versions, atomic event idempotency records, and a guarded external-action journal.
 - [x] Add local restart, replay, out-of-order, poison-event, and timeout-to-unknown tests. An ambiguous external action cannot automatically retry.
-- [ ] Review the existing outbox backlog and verify a worker restart against the connected live read-only buyer account before enabling M7 in a deployed environment.
+- [x] Audit the local outbox backlog and verify a local worker restart with no duplicate publication (30 published, zero pending/failed on 2026-11-07).
+- [ ] Enable and verify M7 in a deployed worker environment with Redis, PostgreSQL, and buyer secrets. No deployment has been authorized.
 
 ## M8 — Real marketplace vertical slice
 
+- [x] Add fail-closed profile/balance/cap preflight, exact proposal, operator approval, no-charge draft gate, read-only job observation, and private text-result intake. These are local implementation, not an exercised hire.
 - [ ] Verify buyer funding and exact live hire/acceptance-window/settlement semantics against the running marketplace.
 - [ ] Prepare an exact capped hire with a listing snapshot, verified live customer payment, and recorded operator approval.
 - [ ] Execute one authorized real supplier job.
@@ -131,19 +133,20 @@ M1–M5 local verification: unit tests, web/worker/root type checks, formatting,
 
 ## M9 — QA and delivery
 
-- [ ] Implement deterministic artifact and requirement validators.
-- [ ] Add schema-validated qualitative QA and evidence storage.
+- [x] Implement deterministic artifact and requirement validators that never infer semantic quality from file presence.
+- [x] Add operator-only checklist-based qualitative QA decisions and evidence storage.
 - [ ] Implement bounded correction/revision without silent spend increases.
-- [ ] Build project timeline and deliverable review/download UI.
-- [ ] Separate supplier acceptance, customer acceptance, and project closure.
+- [x] Build operator artifact review, customer project timeline, QA status, and gated external-reference links.
+- [ ] Add private downloadable marketplace files, supplier acceptance, and customer-review transition. Customer acceptance is separate; closure remains separate.
 
 ## M10 — Reconciliation and operations
 
-- [ ] Reconcile customer funding, commitments, escrow, expense, fees, revenue, and realized contribution.
+- [x] Add a fail-closed local settlement-readiness check; it never labels unconfirmed amounts as revenue or profit.
+- [ ] Reconcile funding, marketplace holds/releases/refunds, expense, fees, revenue, and realized contribution against live provider evidence.
 - [ ] Anchor the reconciled settlement receipt and expose its NEAR proof link.
-- [ ] Build customer billing and receipts.
-- [ ] Build protected operations, run-detail, treasury, policy, and audit screens.
-- [ ] Add safe pause/resume, exception approval, and idempotent step replay.
+- [x] Build owner-scoped customer billing records and protected operations, supplier-job, project, treasury, policy, and audit views. A legal invoice/receipt still requires verified live settlement.
+- [x] Add versioned emergency pause/resume and exact first-hire operator approval.
+- [ ] Add exception resolution, provider reconciliation, deadline alerts, and end-to-end idempotent live-step replay.
 
 ## M11 — Release
 

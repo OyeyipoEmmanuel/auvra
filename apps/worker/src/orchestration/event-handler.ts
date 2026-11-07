@@ -22,6 +22,13 @@ const committedStateEvents = new Set([
   "supplier.discovery_not_available",
   "supplier.discovery_over_budget",
   "supplier.discovery_ready_for_quote",
+  "approval.granted",
+  "delivery.customer_accepted",
+  "policy.pause_changed",
+  "supplier.job_hired",
+  "supplier.job_submitted",
+  "qa.deterministic_completed",
+  "qa.qualitative_completed",
 ]);
 
 function payloadRecord(value: unknown): Record<string, unknown> | null {

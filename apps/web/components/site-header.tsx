@@ -23,7 +23,7 @@ export function SiteHeader() {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#202024] bg-[#09090b]/95 backdrop-blur-lg">
+    <header className="auvra-site-header sticky top-0 z-50 border-b border-[#202024] bg-[#09090b]/95 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
         <Brand />
         <nav
@@ -49,7 +49,7 @@ export function SiteHeader() {
           </Link>
           <Link
             href="/app/requests/new"
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--brand)] px-3.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#7437e6]"
+            className="auvra-header-cta inline-flex h-9 items-center gap-2 px-3.5 text-[14px] font-semibold transition-colors"
           >
             Get started <ArrowUpRight className="size-3.5" />
           </Link>
@@ -92,7 +92,7 @@ export function SiteHeader() {
             <Link
               href="/app/requests/new"
               onClick={() => setOpen(false)}
-              className="mt-2 inline-flex h-10 items-center rounded-lg bg-[var(--brand)] px-4 text-[15px] font-medium text-white"
+              className="auvra-header-cta mt-2 inline-flex h-10 items-center px-4 text-[15px] font-medium"
             >
               Get started
             </Link>

@@ -7,8 +7,15 @@
     "check": "tsc --noEmit",
     "start": "tsx src/index.ts",
     "market:balance": "tsx src/marketplace/check-buyer-funding.ts",
+    "market:tools": "tsx src/marketplace/inspect-buyer-tools.ts",
+    "market:preflight": "tsx src/marketplace/live-hire-preflight.ts",
+    "market:plan": "tsx src/marketplace/plan-buyer-job.ts",
+    "market:prepare": "tsx src/marketplace/prepare-buyer-draft.ts",
+    "market:observe": "tsx src/marketplace/observe-buyer-job.ts",
+    "market:result": "tsx src/marketplace/ingest-buyer-result.ts",
     "market:enroll": "tsx src/marketplace/enroll-buyer.ts",
-    "health": "tsx src/orchestration/health.ts"
+    "health": "tsx src/orchestration/health.ts",
+    "outbox:audit": "tsx src/orchestration/audit-backlog.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",

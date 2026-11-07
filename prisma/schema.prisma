@@ -375,6 +375,9 @@ model SupplierJob {
   taskId            String           @db.Uuid
   provider          String
   externalServiceId String
+  externalAgentId   String?          @db.Uuid
+  externalDraftId   String?          @unique @db.Uuid
+  approvalUrl       String?          @db.Text
   externalJobId     String?
   state             SupplierJobState @default(PROPOSED)
   currency          String
@@ -382,8 +385,11 @@ model SupplierJob {
   committedMinor    BigInt           @default(0)
   settledMinor      BigInt           @default(0)
   requestHash       String?
+  listingSnapshotJson Json?
+  providerStatusJson Json?
   rawStatus         String?
   lastObservedAt    DateTime?
+  autoAcceptAt      DateTime?
   version           Int              @default(1)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -395,6 +401,7 @@ model SupplierJob {
   @@unique([provider, externalJobId])
   @@index([projectId, state])
   @@index([taskId])
+  @@index([autoAcceptAt, state])
 }
 
 model Artifact {

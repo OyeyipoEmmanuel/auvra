@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import { Brand } from "@/components/brand";
+import { LandingHero } from "@/components/landing-hero";
+import { MarketingMotion } from "@/components/marketing-motion";
 import { MarketingProductDemo } from "@/components/marketing-product-demo";
 import {
   AboutRow,
@@ -15,75 +17,65 @@ import { SiteHeader } from "@/components/site-header";
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-x-clip bg-[#09090b] text-[#fafafa]">
+    <main className="auvra-marketing min-h-screen overflow-x-clip text-[#fafafa]">
+      <MarketingMotion />
       <SiteHeader />
+      <LandingHero />
+
       <section
-        className="marketing-grid relative overflow-hidden border-b border-[#27272a]"
-        aria-labelledby="hero-title"
+        id="product"
+        className="auvra-product-section scroll-mt-20"
       >
-        <div className="mx-auto max-w-[1440px] px-5 pb-14 pt-24 sm:px-8 sm:pt-32 lg:px-12 lg:pt-36">
-          <h1
-            id="hero-title"
-            className="hero-enter hero-enter-2 mt-7 max-w-[1150px] text-[clamp(3.6rem,8.25vw,8rem)] font-medium leading-[.92] tracking-[-.075em]"
-          >
-            <span className="block">The company</span>
-            <span className="block">
-              that runs itself<span className="text-[var(--brand-light)]">.</span>
-            </span>
-          </h1>
-          <div className="hero-enter hero-enter-3 mt-8 flex flex-col gap-8 sm:mt-10 lg:flex-row lg:items-end lg:justify-between">
-            <p className="max-w-[640px] text-[17px] leading-7 text-[#aaaab3] sm:text-xl sm:leading-8">
-              From customer requests to agent hiring, execution, and payments. Auvra manages the
-              entire operation.
-            </p>
-            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
-              <Link
-                href="/app/requests/new"
-                className="inline-flex h-11 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-[15px] font-medium text-white transition-colors hover:bg-[#7437e6] sm:px-5"
-              >
-                Get started <ArrowUpRight className="size-4" />
-              </Link>
-              <Link
-                href="#how-it-works"
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-[#39393f] bg-[#161619] px-4 text-[15px] font-medium text-[#e8e8eb] transition-colors hover:bg-[#202024] sm:px-5"
-              >
-                See how it works <ArrowDown className="size-3.5" />
-              </Link>
+        <div className="auvra-shell">
+          <Reveal>
+            <div className="auvra-section-intro">
+              <Eyebrow>Inside Auvra</Eyebrow>
+              <span>01 / THE WORKSPACE</span>
             </div>
-          </div>
+            <div className="auvra-product-heading">
+              <h2>
+                From a sentence
+                <br />
+                <span>to a system.</span>
+              </h2>
+              <p>
+                One place to understand the plan, review the quote, and follow the work. The
+                complexity stays behind the scenes; the decisions stay with you.
+              </p>
+            </div>
+          </Reveal>
           <div
-            id="product"
-            className="hero-enter hero-enter-4 mt-20 scroll-mt-24 sm:mt-24"
+            data-auvra-drift="26"
+            className="auvra-product-float"
           >
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#8b8b95]">
-              <span>THE AUVRA WORKSPACE</span>
-              <span>One request, one accountable operation</span>
-            </div>
             <MarketingProductDemo />
-            <p className="mt-4 text-[13px] text-[#72727b]">
-              Illustrative product preview. Live supplier purchases and settlement are not enabled
-              in the current demo.
-            </p>
           </div>
+          <p className="auvra-product-note">
+            Illustrative product preview. Live supplier purchases and settlement are not enabled in
+            the current demo.
+          </p>
         </div>
       </section>
 
       <section
         id="how-it-works"
-        className="scroll-mt-20 border-b border-[#27272a] py-24 sm:py-32 lg:py-36"
+        className="auvra-story-section scroll-mt-20"
       >
-        <div className="mx-auto max-w-[1344px] px-5 sm:px-8 lg:px-12">
+        <div className="auvra-shell">
           <Reveal>
+            <div className="auvra-section-intro">
+              <Eyebrow>The process</Eyebrow>
+              <span>02 / HOW IT WORKS</span>
+            </div>
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-end">
               <div>
-                <Eyebrow>How Auvra works</Eyebrow>
-                <h2 className="mt-5 max-w-[800px] text-[clamp(2.8rem,5.6vw,5.4rem)] font-medium leading-[.98] tracking-[-.065em]">
-                  One request.
+                <h2 className="auvra-display-title mt-7 max-w-[900px]">
+                  One request<span className="text-[#b195ff]">.</span>
                   <br />
                   <span className="text-[#7d7d88]">An entire operation.</span>
                 </h2>
               </div>
-              <p className="max-w-md text-[16px] leading-7 text-[#9b9ba5]">
+              <p className="max-w-md text-[17px] leading-7 text-[#a6a4b2]">
                 The customer buys an outcome. Auvra is responsible for turning that outcome into a
                 scoped plan, the right specialist work, and a reviewable result.
               </p>
@@ -95,9 +87,9 @@ export default function Home() {
 
       <section
         id="operations"
-        className="scroll-mt-20 border-b border-[#27272a] bg-[#0f0f11] py-24 sm:py-32"
+        className="auvra-feature-section auvra-feature-section-tinted scroll-mt-20"
       >
-        <div className="mx-auto grid max-w-[1344px] gap-14 px-5 sm:px-8 lg:grid-cols-[.72fr_1.28fr] lg:items-start lg:gap-20 lg:px-12">
+        <div className="auvra-shell grid gap-14 lg:grid-cols-[.72fr_1.28fr] lg:items-start lg:gap-20">
           <Reveal>
             <Eyebrow>Autonomous operations</Eyebrow>
             <h2 className="mt-5 text-[clamp(2.7rem,4.8vw,4.6rem)] font-medium leading-[1.01] tracking-[-.06em]">
@@ -114,21 +106,31 @@ export default function Home() {
               Explore the workspace <ArrowUpRight className="size-4" />
             </Link>
           </Reveal>
-          <Reveal>
-            <OperationsPreview />
+          <Reveal className="auvra-feature-art">
+            <div
+              data-auvra-drift="18"
+              className="auvra-drift-layer"
+            >
+              <OperationsPreview />
+            </div>
           </Reveal>
         </div>
       </section>
 
-      <section className="border-b border-[#27272a] py-24 sm:py-32">
-        <div className="mx-auto grid max-w-[1344px] gap-14 px-5 sm:px-8 lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:gap-20 lg:px-12">
-          <Reveal className="order-2 lg:order-1">
-            <ProcurementPreview />
+      <section className="auvra-feature-section">
+        <div className="auvra-shell grid gap-14 lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:gap-20">
+          <Reveal className="auvra-feature-art order-2 lg:order-1">
+            <div
+              data-auvra-drift="-18"
+              className="auvra-drift-layer"
+            >
+              <ProcurementPreview />
+            </div>
           </Reveal>
           <Reveal className="order-1 lg:order-2">
             <Eyebrow>Specialist procurement</Eyebrow>
             <h2 className="mt-5 text-[clamp(2.7rem,4.8vw,4.6rem)] font-medium leading-[1.01] tracking-[-.06em]">
-              The right agents. Hired automatically.
+              The right minds for every job.
             </h2>
             <p className="mt-6 max-w-md text-[16px] leading-7 text-[#9b9ba5]">
               Auvra uses NEAR Agent Market as its supplier network. The manager checks capability,
@@ -142,8 +144,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-b border-[#27272a] bg-[#0f0f11] py-24 sm:py-32">
-        <div className="mx-auto max-w-[1344px] px-5 sm:px-8 lg:px-12">
+      <section className="auvra-feature-section auvra-feature-section-tinted">
+        <div className="auvra-shell">
           <Reveal>
             <div className="grid gap-6 lg:grid-cols-[.9fr_1.1fr] lg:items-end">
               <div>
@@ -161,17 +163,22 @@ export default function Home() {
               </p>
             </div>
           </Reveal>
-          <Reveal className="mt-14">
-            <TreasuryPreview />
+          <Reveal className="auvra-feature-art mt-14">
+            <div
+              data-auvra-drift="14"
+              className="auvra-drift-layer"
+            >
+              <TreasuryPreview />
+            </div>
           </Reveal>
         </div>
       </section>
 
       <section
         id="about"
-        className="scroll-mt-20 border-b border-[#27272a] py-24 sm:py-32"
+        className="auvra-feature-section scroll-mt-20"
       >
-        <div className="mx-auto grid max-w-[1344px] gap-12 px-5 sm:px-8 lg:grid-cols-[.8fr_1.2fr] lg:gap-20 lg:px-12">
+        <div className="auvra-shell grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-20">
           <Reveal>
             <Eyebrow>Built on NEAR</Eyebrow>
             <h2 className="mt-5 text-[clamp(2.7rem,4.8vw,4.6rem)] font-medium leading-[1.01] tracking-[-.06em]">
@@ -201,33 +208,40 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-24 sm:py-32">
-        <div className="mx-auto max-w-[1344px] px-5 sm:px-8 lg:px-12">
+      <section className="auvra-final-section">
+        <div
+          className="auvra-final-grid"
+          aria-hidden="true"
+        />
+        <div className="auvra-shell">
           <Reveal>
-            <div className="border-t border-[#3d2e55] pt-8">
-              <p className="text-[13px] font-medium uppercase tracking-[.14em] text-[#9a7bdb]">
-                Start with the outcome
+            <div className="auvra-final-content">
+              <p className="auvra-kicker">Start with the outcome</p>
+              <h2>
+                Make room for
+                <br />
+                <span>what&apos;s next.</span>
+              </h2>
+              <p>
+                Tell us the outcome. We&apos;ll help turn it into an operation you can understand,
+                approve, and follow.
               </p>
-              <div className="mt-7 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
-                <h2 className="max-w-[900px] text-[clamp(3rem,6.4vw,6.2rem)] font-medium leading-[.96] tracking-[-.07em]">
-                  Auvra. The company
-                  <br />
-                  that runs itself.
-                </h2>
-                <Link
-                  href="/app/requests/new"
-                  className="inline-flex h-11 shrink-0 items-center gap-2 self-start rounded-lg bg-[var(--brand)] px-5 text-[15px] font-medium text-white transition-colors hover:bg-[#7437e6] lg:self-auto"
-                >
-                  Get started <ArrowUpRight className="size-4" />
-                </Link>
-              </div>
+              <Link
+                href="/app/requests/new"
+                className="auvra-action auvra-action-primary"
+              >
+                <span>Start a request</span>
+                <span className="auvra-action-icon">
+                  <ArrowUpRight size={18} />
+                </span>
+              </Link>
             </div>
           </Reveal>
         </div>
       </section>
 
-      <footer className="border-t border-[#27272a] bg-[#0f0f11]">
-        <div className="mx-auto grid max-w-[1344px] gap-8 px-5 py-10 sm:px-8 md:grid-cols-[1fr_auto_auto] lg:px-12">
+      <footer className="auvra-footer">
+        <div className="auvra-shell grid gap-12 py-16 md:grid-cols-[2fr_1fr_1fr]">
           <div>
             <Brand />
             <p className="mt-3 max-w-xs text-[14px] leading-5 text-[#85858e]">
@@ -277,7 +291,13 @@ export default function Home() {
             </a>
           </div>
         </div>
-        <div className="mx-auto flex max-w-[1344px] flex-wrap justify-between gap-2 border-t border-[#27272a] px-5 py-5 text-[13px] text-[#71717a] sm:px-8 lg:px-12">
+        <div
+          className="auvra-footer-wordmark"
+          aria-hidden="true"
+        >
+          AUVRA
+        </div>
+        <div className="auvra-shell auvra-footer-bottom">
           <span>© 2026 Auvra</span>
           <span>Development sandbox · no live supplier spend</span>
         </div>

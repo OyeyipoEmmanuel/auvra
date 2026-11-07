@@ -25,6 +25,7 @@ export const workspaceNav = [
   { href: "/app/agents", label: "Agents", icon: Bot },
   { href: "/app/operations", label: "Operations", icon: SlidersHorizontal },
   { href: "/app/treasury", label: "Treasury", icon: ReceiptText },
+  { href: "/app/billing", label: "Billing", icon: ReceiptText },
   { href: "/app/activity", label: "Activity", icon: Activity },
   { href: "/app/settings", label: "Settings", icon: Settings2 },
 ] as const;

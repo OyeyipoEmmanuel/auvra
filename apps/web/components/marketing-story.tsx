@@ -95,7 +95,7 @@ export function MarketingStory() {
           </button>
         ))}
       </div>
-      <div className="lg:sticky lg:top-28 lg:self-start">
+      <div className="auvra-story-sticky lg:sticky lg:top-28 lg:self-start">
         <div className="overflow-hidden rounded-xl border border-[#34343a] bg-[#131315]">
           <div className="flex items-center justify-between border-b border-[#2b2b30] px-5 py-4">
             <span className="text-[14px] font-medium text-[#dedee2]">Auvra / {stage.panel}</span>
