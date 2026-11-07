@@ -4,7 +4,9 @@ import Google from "next-auth/providers/google";
 
 import { prisma } from "@/lib/prisma";
 
-const googleConfigured = Boolean(process.env.AUTH_SECRET && process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+const googleConfigured = Boolean(
+  process.env.AUTH_SECRET && process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
+);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),

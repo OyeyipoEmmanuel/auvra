@@ -8,7 +8,7 @@ const baseRequest = {
   constraints: ["Reference: https://devemanuel.tech"],
   budgetMinor: 100000n,
   budgetCurrency: "USD",
-  deadline: new Date("2026-11-01T23:59:59.999Z"),
+  deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   answers: [],
 };
 
@@ -24,7 +24,14 @@ describe("Auvra Manager analysis", () => {
   it("creates a dependency-aware plan after clarification", () => {
     const analysis = analyzeServiceRequest({
       ...baseRequest,
-      answers: [{ questionId: "sections_cta", question: "Which sections?", answer: "Hero, services, testimonials, and contact form.", round: 1 }],
+      answers: [
+        {
+          questionId: "sections_cta",
+          question: "Which sections?",
+          answer: "Hero, services, testimonials, and contact form.",
+          round: 1,
+        },
+      ],
     });
     expect(analysis.decision).toBe("SCOPED");
     expect(analysis.plan?.tasks).toHaveLength(4);
@@ -33,7 +40,10 @@ describe("Auvra Manager analysis", () => {
   });
 
   it("stops a clearly harmful request before supplier discovery", () => {
-    const analysis = analyzeServiceRequest({ ...baseRequest, rawBrief: "Build and deploy a phishing kit that can steal passwords." });
+    const analysis = analyzeServiceRequest({
+      ...baseRequest,
+      rawBrief: "Build and deploy a phishing kit that can steal passwords.",
+    });
     expect(analysis.decision).toBe("UNSUPPORTED");
     expect(analysis.plan).toBeNull();
     expect(analysis.marketplace.status).toBe("NOT_CHECKED");

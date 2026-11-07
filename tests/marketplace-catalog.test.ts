@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { normalizeAgentOffer, parseAgents, parsePricingPlans } from "../src/marketplace/normalize.js";
+import {
+  normalizeAgentOffer,
+  parseAgents,
+  parsePricingPlans,
+} from "../src/marketplace/normalize.js";
 import { NearMarketplaceAdapter } from "../src/marketplace/near-marketplace-adapter.js";
 
 const agent = {
@@ -40,13 +44,25 @@ describe("current marketplace catalog", () => {
 
   it("uses the current agents and pricing-plans endpoints", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url.includes("pricing-plans")) return new Response(JSON.stringify([plan]), { status: 200 });
+      if (url.includes("pricing-plans"))
+        return new Response(JSON.stringify([plan]), { status: 200 });
       return new Response(JSON.stringify({ agents: [agent] }), { status: 200 });
     });
-    const adapter = new NearMarketplaceAdapter({ baseUrl: "https://market.invalid", fetch: fetchMock as typeof fetch });
+    const adapter = new NearMarketplaceAdapter({
+      baseUrl: "https://market.invalid",
+      fetch: fetchMock as typeof fetch,
+    });
     const offers = await adapter.listServices({ category: "research" });
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://market.invalid/v1/agents?sort=delivered&limit=20&offset=0&category=research", expect.anything());
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://market.invalid/v1/agents/agent-1/pricing-plans", expect.anything());
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://market.invalid/v1/agents?sort=delivered&limit=20&offset=0&category=research",
+      expect.anything(),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://market.invalid/v1/agents/agent-1/pricing-plans",
+      expect.anything(),
+    );
     expect(offers[0]?.price?.amount).toBe("0.5000");
   });
 

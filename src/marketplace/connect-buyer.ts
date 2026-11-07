@@ -9,6 +9,7 @@ import {
 } from "@modelcontextprotocol/client";
 
 import { EphemeralOAuthProvider } from "./oauth-provider.js";
+import { probeMarketplaceBuyerFunding } from "../../apps/worker/src/marketplace/buyer-funding.js";
 
 const MCP_URL = new URL("https://market.near.ai/mcp");
 const CALLBACK_PORT = 8765;
@@ -33,8 +34,10 @@ function callbackServer(provider: EphemeralOAuthProvider): {
       return;
     }
     try {
-      if (url.searchParams.has("error")) throw new Error(`OAuth authorization failed: ${url.searchParams.get("error")}`);
-      if (!url.searchParams.has("code")) throw new Error("OAuth callback did not include an authorization code");
+      if (url.searchParams.has("error"))
+        throw new Error(`OAuth authorization failed: ${url.searchParams.get("error")}`);
+      if (!url.searchParams.has("code"))
+        throw new Error("OAuth callback did not include an authorization code");
       provider.verifyCallbackState(url.searchParams);
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       response.end("<h1>Auvra connected</h1><p>You can close this tab and return to Codex.</p>");
@@ -43,12 +46,17 @@ function callbackServer(provider: EphemeralOAuthProvider): {
       const safeMessage = error instanceof Error ? error.message : "OAuth callback failed";
       response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
       response.end(safeMessage);
-      rejectParams(new Error(safeMessage));
+      // A stale browser tab can return to this fixed local port after a new
+      // authorization has started. Reject that request, not the active flow.
+      // Only the current state and a valid code may resolve the callback.
     }
   });
 
   server.listen(CALLBACK_PORT, "127.0.0.1");
-  const timeout = setTimeout(() => rejectParams(new Error("OAuth authorization timed out")), CALLBACK_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => rejectParams(new Error("OAuth authorization timed out")),
+    CALLBACK_TIMEOUT_MS,
+  );
   timeout.unref();
   void params.finally(() => clearTimeout(timeout));
   return { server, params };
@@ -57,16 +65,23 @@ function callbackServer(provider: EphemeralOAuthProvider): {
 function redactSensitive(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactSensitive);
   if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, child]) => {
-    if (/^(email|access_token|refresh_token|id_token|client_secret|authorization)$/i.test(key)) return [key, "[redacted]"];
-    return [key, redactSensitive(child)];
-  }));
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => {
+      if (/^(email|access_token|refresh_token|id_token|client_secret|authorization)$/i.test(key))
+        return [key, "[redacted]"];
+      return [key, redactSensitive(child)];
+    }),
+  );
 }
 
 function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unknown {
-  const texts = result.content.flatMap((item) => item.type === "text" ? [item.text] : []);
+  const texts = result.content.flatMap((item) => (item.type === "text" ? [item.text] : []));
   return texts.map((text) => {
-    try { return JSON.parse(text) as unknown; } catch { return text; }
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return text;
+    }
   });
 }
 
@@ -81,7 +96,9 @@ async function main(): Promise<void> {
   };
   const provider = new EphemeralOAuthProvider(CALLBACK_URL, metadata, (url) => {
     console.log(`AUVRA_AUTH_URL=${url.toString()}`);
-    console.log("Open the URL above and approve the buyer connection. No marketplace tool has been called yet.");
+    console.log(
+      "Open the URL above and approve the buyer connection. No marketplace tool has been called yet.",
+    );
   });
   const callback = callbackServer(provider);
   const client = new Client({ name: "auvra-phase-0", version: "0.0.0" }, { capabilities: {} });
@@ -94,7 +111,9 @@ async function main(): Promise<void> {
       if (!(error instanceof UnauthorizedError)) throw error;
       const params = await callback.params;
       await firstTransport.finishAuth(params);
-      const authenticatedTransport = new StreamableHTTPClientTransport(MCP_URL, { authProvider: provider });
+      const authenticatedTransport = new StreamableHTTPClientTransport(MCP_URL, {
+        authProvider: provider,
+      });
       await client.connect(authenticatedTransport);
     }
 
@@ -102,11 +121,70 @@ async function main(): Promise<void> {
     const toolNames = tools.map((tool) => tool.name);
     const whoami = tools.find((tool) => /(^|[_-])whoami$/i.test(tool.name));
     if (!whoami) {
-      console.log(JSON.stringify({ connected: true, toolCount: tools.length, toolNames, whoamiAvailable: false }, null, 2));
+      console.log(
+        JSON.stringify(
+          { connected: true, toolCount: tools.length, toolNames, whoamiAvailable: false },
+          null,
+          2,
+        ),
+      );
       return;
     }
     const result = await client.callTool({ name: whoami.name, arguments: {} });
-    console.log(JSON.stringify({ connected: true, toolCount: tools.length, toolNames, whoami: redactSensitive(parseTextContent(result)) }, null, 2));
+    let walletProbe: unknown = { verified: false };
+    const accessToken = provider.tokens()?.access_token;
+    if (accessToken) {
+      const identityResponse = await fetch("https://market.near.ai/v1/me", {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (identityResponse.ok) {
+        const identity: unknown = await identityResponse.json();
+        const accountId =
+          identity &&
+          typeof identity === "object" &&
+          "account" in identity &&
+          identity.account &&
+          typeof identity.account === "object" &&
+          "account_id" in identity.account &&
+          typeof identity.account.account_id === "string"
+            ? identity.account.account_id
+            : null;
+        if (accountId) {
+          const [usd, usdc] = await Promise.all([
+            probeMarketplaceBuyerFunding({
+              accessToken,
+              expectedAccountId: accountId,
+              asset: "USD",
+            }),
+            probeMarketplaceBuyerFunding({
+              accessToken,
+              expectedAccountId: accountId,
+              asset: "USDC",
+            }),
+          ]);
+          walletProbe = {
+            verified: Boolean(usd && usdc),
+            accountId,
+            usdAvailableMinor: usd?.availableMinor.toString() ?? null,
+            usdcAvailableMinor: usdc?.availableMinor.toString() ?? null,
+          };
+        }
+      }
+    }
+    console.log(
+      JSON.stringify(
+        {
+          connected: true,
+          toolCount: tools.length,
+          toolNames,
+          whoami: redactSensitive(parseTextContent(result)),
+          walletProbe,
+        },
+        null,
+        2,
+      ),
+    );
   } finally {
     callback.server.close();
     await client.close().catch(() => undefined);

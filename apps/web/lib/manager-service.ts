@@ -2,7 +2,11 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
-import { analyzeServiceRequest, isManagerAnalysis } from "@/lib/manager-analysis";
+import {
+  analyzeServiceRequest,
+  isManagerAnalysis,
+  managerAnalysisSchema,
+} from "@/lib/manager-analysis";
 import { prisma } from "@/lib/prisma";
 
 export async function runManagerAnalysis(requestId: string, customerId: string) {
@@ -24,8 +28,25 @@ export async function runManagerAnalysis(requestId: string, customerId: string) 
         data: { state: "ANALYZING" },
       });
       if (update.count === 1) {
-        await tx.auditEvent.create({ data: { actorType: "SYSTEM", eventType: "REQUEST_ANALYSIS_STARTED", requestId, metadataJson: { engine: "AUVRA_RULES_V1" } } });
-        await tx.outboxEvent.create({ data: { aggregateType: "ServiceRequest", aggregateId: requestId, eventType: "request.analysis_started", idempotencyKey: `request:${requestId}:analysis-started:v1`, payloadJson: { requestId } } }).catch(() => undefined);
+        await tx.auditEvent.create({
+          data: {
+            actorType: "SYSTEM",
+            eventType: "REQUEST_ANALYSIS_STARTED",
+            requestId,
+            metadataJson: { engine: "AUVRA_RULES_V1" },
+          },
+        });
+        await tx.outboxEvent
+          .create({
+            data: {
+              aggregateType: "ServiceRequest",
+              aggregateId: requestId,
+              eventType: "request.analysis_started",
+              idempotencyKey: `request:${requestId}:analysis-started:v1`,
+              payloadJson: { requestId },
+            },
+          })
+          .catch(() => undefined);
       }
     } else if (current.state !== "ANALYZING") {
       return { kind: "INVALID_STATE" as const, state: current.state };
@@ -44,7 +65,10 @@ export async function runManagerAnalysis(requestId: string, customerId: string) 
       budgetMinor: true,
       budgetCurrency: true,
       deadline: true,
-      answers: { orderBy: [{ round: "asc" }, { createdAt: "asc" }], select: { questionId: true, question: true, answer: true, round: true } },
+      answers: {
+        orderBy: [{ round: "asc" }, { createdAt: "asc" }],
+        select: { questionId: true, question: true, answer: true, round: true },
+      },
     },
   });
   if (!request) return { kind: "IN_PROGRESS" as const };
@@ -52,7 +76,7 @@ export async function runManagerAnalysis(requestId: string, customerId: string) 
   const constraints = Array.isArray(request.constraintsJson)
     ? request.constraintsJson.filter((item): item is string => typeof item === "string")
     : [];
-  const analysis = analyzeServiceRequest({ ...request, constraints });
+  const analysis = managerAnalysisSchema.parse(analyzeServiceRequest({ ...request, constraints }));
   const nextState = analysis.decision;
   const analysisJson = JSON.parse(JSON.stringify(analysis)) as Prisma.InputJsonValue;
 
@@ -69,7 +93,11 @@ export async function runManagerAnalysis(requestId: string, customerId: string) 
         eventType: `REQUEST_${nextState}`,
         requestId,
         reason: analysis.decisionReason,
-        metadataJson: { engine: analysis.engine, round: analysis.round, category: analysis.category },
+        metadataJson: {
+          engine: analysis.engine,
+          round: analysis.round,
+          category: analysis.category,
+        },
       },
     });
     await tx.outboxEvent.create({
@@ -84,8 +112,18 @@ export async function runManagerAnalysis(requestId: string, customerId: string) 
     await tx.notification.create({
       data: {
         userId: customerId,
-        type: nextState === "NEEDS_CLARIFICATION" ? "CLARIFICATION_NEEDED" : nextState === "SCOPED" ? "REQUEST_SCOPED" : "REQUEST_UNSUPPORTED",
-        title: nextState === "NEEDS_CLARIFICATION" ? "Auvra needs a few details" : nextState === "SCOPED" ? "Your initial plan is ready" : "Auvra cannot fulfill this request",
+        type:
+          nextState === "NEEDS_CLARIFICATION"
+            ? "CLARIFICATION_NEEDED"
+            : nextState === "SCOPED"
+              ? "REQUEST_SCOPED"
+              : "REQUEST_UNSUPPORTED",
+        title:
+          nextState === "NEEDS_CLARIFICATION"
+            ? "Auvra needs a few details"
+            : nextState === "SCOPED"
+              ? "Your initial plan is ready"
+              : "Auvra cannot fulfill this request",
         body: analysis.decisionReason,
       },
     });
@@ -97,7 +135,11 @@ export async function runManagerAnalysis(requestId: string, customerId: string) 
     : { kind: "IN_PROGRESS" as const };
 }
 
-export async function saveClarificationAnswers(requestId: string, customerId: string, rawAnswers: unknown) {
+export async function saveClarificationAnswers(
+  requestId: string,
+  customerId: string,
+  rawAnswers: unknown,
+) {
   const request = await prisma.serviceRequest.findFirst({
     where: { id: requestId, customerId },
     select: { state: true, analysisJson: true },
@@ -113,7 +155,8 @@ export async function saveClarificationAnswers(requestId: string, customerId: st
   for (const item of rawAnswers) {
     if (!item || typeof item !== "object") return { kind: "INVALID_ANSWERS" as const };
     const record = item as Record<string, unknown>;
-    if (typeof record.questionId !== "string" || typeof record.answer !== "string") return { kind: "INVALID_ANSWERS" as const };
+    if (typeof record.questionId !== "string" || typeof record.answer !== "string")
+      return { kind: "INVALID_ANSWERS" as const };
     const answer = record.answer.trim();
     if (!answer || answer.length > 2000) return { kind: "INVALID_ANSWERS" as const };
     supplied.set(record.questionId, answer);
@@ -140,8 +183,24 @@ export async function saveClarificationAnswers(requestId: string, customerId: st
       })),
       skipDuplicates: true,
     });
-    await tx.auditEvent.create({ data: { actorType: "USER", actorId: customerId, eventType: "REQUEST_CLARIFICATIONS_ANSWERED", requestId, metadataJson: { round: analysis.round, answerCount: supplied.size } } });
-    await tx.outboxEvent.create({ data: { aggregateType: "ServiceRequest", aggregateId: requestId, eventType: "request.clarifications_answered", idempotencyKey: `request:${requestId}:clarifications:${analysis.round}`, payloadJson: { requestId, round: analysis.round } } });
+    await tx.auditEvent.create({
+      data: {
+        actorType: "USER",
+        actorId: customerId,
+        eventType: "REQUEST_CLARIFICATIONS_ANSWERED",
+        requestId,
+        metadataJson: { round: analysis.round, answerCount: supplied.size },
+      },
+    });
+    await tx.outboxEvent.create({
+      data: {
+        aggregateType: "ServiceRequest",
+        aggregateId: requestId,
+        eventType: "request.clarifications_answered",
+        idempotencyKey: `request:${requestId}:clarifications:${analysis.round}`,
+        payloadJson: { requestId, round: analysis.round },
+      },
+    });
     return true;
   });
 

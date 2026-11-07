@@ -20,7 +20,9 @@ describe("Auvra lifecycle transitions", () => {
   it("prevents request state skipping and terminal rewrites", () => {
     expect(canTransition(requestTransitions, "DRAFT", "FUNDED")).toBe(false);
     expect(canTransition(requestTransitions, "PROJECT_CREATED", "DRAFT")).toBe(false);
-    expect(() => assertTransition(requestTransitions, "QUOTED", "FUNDED")).toThrow(/Illegal state transition/);
+    expect(() => assertTransition(requestTransitions, "QUOTED", "FUNDED")).toThrow(
+      /Illegal state transition/,
+    );
   });
 
   it("keeps procurement behind an explicit supplier approval", () => {

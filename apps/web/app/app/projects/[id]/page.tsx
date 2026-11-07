@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, FlaskConical, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, LockKeyhole } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { StateDot, WorkspaceEmpty, formatMoney } from "@/components/workspace-ui";
 import { requirePageUser } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 
@@ -14,19 +13,252 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     where: { id, customerId: user.id },
     include: {
       request: { select: { id: true, rawBrief: true } },
-      tasks: { orderBy: { createdAt: "asc" } },
-      payments: { select: { id: true, provider: true, state: true, currency: true, amountMinor: true, allocatedAt: true } },
+      tasks: {
+        orderBy: { createdAt: "asc" },
+        include: { supplierJobs: { select: { id: true, provider: true, state: true } } },
+      },
+      payments: {
+        select: {
+          id: true,
+          provider: true,
+          state: true,
+          currency: true,
+          amountMinor: true,
+          allocatedAt: true,
+        },
+      },
+      supplierJobs: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          provider: true,
+          externalServiceId: true,
+          state: true,
+          committedMinor: true,
+          settledMinor: true,
+          currency: true,
+        },
+      },
+      artifacts: {
+        orderBy: { createdAt: "desc" },
+        select: { id: true, kind: true, externalUrl: true, createdAt: true },
+      },
     },
   });
   if (!project) notFound();
-  const demoPayment = project.payments.find((payment) => payment.provider === "DEMO_SANDBOX");
-
-  return <main className="mx-auto max-w-5xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10"><Link href="/app" className="inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-white"><ArrowLeft className="size-3.5" />Back to workspace</Link><div className="mt-8 flex flex-wrap items-center gap-3"><Badge variant="warning">Development sandbox</Badge><Badge variant="neutral">{project.state}</Badge></div><h1 className="mt-5 text-4xl tracking-[-.055em] sm:text-5xl">Project plan created.</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-500">{project.request.rawBrief}</p>
-    <Card className="mt-8 border-amber-300/20 p-6 sm:p-8"><div className="flex items-start gap-4"><FlaskConical className="mt-1 size-5 shrink-0 text-amber-200" /><div><h2 className="text-lg font-medium">Simulated funding recorded</h2><p className="mt-2 text-sm leading-6 text-zinc-400">{demoPayment ? `${formatMinor(demoPayment.amountMinor, demoPayment.currency)} of demo funds were allocated on ${demoPayment.allocatedAt?.toLocaleString() ?? "the project creation date"}.` : "The demo payment record is unavailable."} No wallet transfer or marketplace hire occurred.</p><p className="mt-3 text-xs text-zinc-600">The supplier budget is reserved in Auvra’s demo ledger. It is not real cash, revenue, or marketplace escrow.</p></div></div></Card>
-    <div className="mt-8 flex items-center justify-between"><div><h2 className="text-xl font-medium">Planned tasks</h2><p className="mt-1 text-xs text-zinc-600">Execution is paused until the supplier procurement system is built and authorized.</p></div><Badge variant="neutral">{project.tasks.length} tasks</Badge></div><div className="mt-5 space-y-3">{project.tasks.map((task, index) => <Card key={task.id} className="p-5 sm:p-6"><div className="flex items-start gap-4"><span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-500/10 font-mono text-xs text-violet-300">0{index + 1}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-medium">{task.title}</h3><Badge variant="neutral">{task.status}</Badge></div><p className="mt-2 text-xs leading-6 text-zinc-500">{task.objective}</p><p className="mt-3 text-xs text-zinc-600">Observed supplier cost: {formatMinor(task.budgetMinor, task.budgetCurrency)}</p></div></div></Card>)}</div><Card className="mt-7 p-6"><div className="flex gap-3"><ShieldCheck className="size-5 shrink-0 text-emerald-300" /><div><p className="text-sm font-medium">Procurement guard</p><p className="mt-2 text-xs leading-6 text-zinc-500">Project creation does not authorize a real supplier purchase. Auvra must verify marketplace funding, supplier availability, spend limits, and a separate execution approval.</p></div></div></Card><Link href={`/app/requests/${project.request.id}`} className="mt-6 inline-flex items-center gap-2 text-xs text-violet-300 hover:text-violet-200"><CheckCircle2 className="size-4" />Review original request and quote</Link></main>;
+  const demoPayment = project.payments.find((payment) =>
+    ["DEMO_SANDBOX", "BACHS_SANDBOX"].includes(payment.provider),
+  );
+  const completed = project.tasks.filter((task) => task.status === "DONE").length;
+  return (
+    <main className="mx-auto max-w-[1180px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+      <Link
+        href="/app/projects"
+        className="inline-flex items-center gap-1.5 text-[14px] text-[#85858e] hover:text-white"
+      >
+        <ArrowLeft className="size-3.5" />
+        Projects
+      </Link>
+      <div className="mt-7 flex flex-wrap items-start justify-between gap-5 border-b border-[var(--ws-border)] pb-7">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium uppercase tracking-[.12em] text-[#777780]">
+            Project {project.id.slice(0, 8).toUpperCase()}
+          </p>
+          <h1 className="mt-2 line-clamp-2 max-w-3xl text-[28px] font-semibold leading-tight tracking-[-.045em] sm:text-[32px]">
+            {project.request.rawBrief}
+          </h1>
+          <div className="mt-4">
+            <StateDot state={project.state} />
+          </div>
+        </div>
+        <Link
+          href={`/app/requests/${project.request.id}`}
+          className="inline-flex items-center gap-1 text-[14px] text-[#a78bfa] hover:text-white"
+        >
+          Original request
+          <ArrowUpRight className="size-3.5" />
+        </Link>
+      </div>
+      {demoPayment && (
+        <div className="mt-7 flex items-start gap-3 rounded-lg border border-[#4a3a25] bg-[#1b1712] p-4 text-[14px] leading-5 text-[#c6b7a2]">
+          <LockKeyhole className="mt-0.5 size-4 shrink-0" />
+          <p>
+            <span className="font-semibold text-[#f2dfbd]">Development sandbox.</span>{" "}
+            {formatMoney(demoPayment.amountMinor, demoPayment.currency)} was recorded as simulated
+            funding. No wallet transfer or marketplace hire occurred.
+          </p>
+        </div>
+      )}
+      <section
+        aria-label="Project summary"
+        className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[var(--ws-border)] bg-[var(--ws-border)] sm:grid-cols-4"
+      >
+        <Summary
+          label="Tasks"
+          value={`${completed} / ${project.tasks.length}`}
+        />
+        <Summary
+          label="Agents hired"
+          value={String(project.supplierJobs.length)}
+        />
+        <Summary
+          label="Deliverables"
+          value={String(project.artifacts.length)}
+        />
+        <Summary
+          label="Started"
+          value={project.startedAt ? project.startedAt.toLocaleDateString() : "Not started"}
+        />
+      </section>
+      <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_290px]">
+        <div className="min-w-0 space-y-10">
+          <section aria-labelledby="tasks-title">
+            <div className="flex items-baseline justify-between">
+              <h2
+                id="tasks-title"
+                className="text-[15px] font-semibold"
+              >
+                Milestones & tasks
+              </h2>
+              <span className="text-[13px] text-[#777780]">{project.tasks.length} planned</span>
+            </div>
+            <div className="mt-4 overflow-hidden rounded-lg border border-[var(--ws-border)]">
+              {project.tasks.length ? (
+                project.tasks.map((task, index) => (
+                  <div
+                    key={task.id}
+                    className="flex gap-4 border-b border-[var(--ws-border)] px-4 py-4 last:border-0"
+                  >
+                    <span className="grid size-7 shrink-0 place-items-center rounded-md border border-[#39393d] bg-[#1a1a1c] text-[13px] text-[#a78bfa]">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-[14px] font-medium text-[#e8e8eb]">{task.title}</h3>
+                        <StateDot state={task.status} />
+                      </div>
+                      <p className="mt-1 text-[14px] leading-5 text-[#92929b]">{task.objective}</p>
+                      <p className="mt-3 text-[13px] text-[#777780]">
+                        {task.supplierJobs.length
+                          ? `${task.supplierJobs.length} agent job(s)`
+                          : "No agent hired"}{" "}
+                        · Observed supplier cost{" "}
+                        {formatMoney(task.budgetMinor, task.budgetCurrency)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <WorkspaceEmpty
+                  title="No tasks recorded"
+                  description="The project plan has no tasks to show."
+                />
+              )}
+            </div>
+          </section>
+          <section aria-labelledby="deliverables-title">
+            <h2
+              id="deliverables-title"
+              className="text-[15px] font-semibold"
+            >
+              Deliverables
+            </h2>
+            <div className="mt-4 overflow-hidden rounded-lg border border-[var(--ws-border)]">
+              {project.artifacts.length ? (
+                project.artifacts.map((artifact) => (
+                  <div
+                    key={artifact.id}
+                    className="flex items-center justify-between gap-4 border-b border-[var(--ws-border)] px-4 py-3.5 last:border-0"
+                  >
+                    <div>
+                      <p className="text-[14px] font-medium text-[#e4e4e7]">{artifact.kind}</p>
+                      <p className="mt-1 text-[13px] text-[#777780]">
+                        Added {artifact.createdAt.toLocaleDateString()}
+                      </p>
+                    </div>
+                    {artifact.externalUrl && /^https?:\/\//i.test(artifact.externalUrl) && (
+                      <a
+                        href={artifact.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[14px] text-[#a78bfa] hover:text-white"
+                      >
+                        Open <ArrowUpRight className="inline size-3" />
+                      </a>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <WorkspaceEmpty
+                  title="No deliverables yet"
+                  description="Supplier outputs will appear here after they are received and checked."
+                />
+              )}
+            </div>
+          </section>
+        </div>
+        <aside className="space-y-8">
+          <section>
+            <h2 className="text-[15px] font-semibold">Agents</h2>
+            <div className="mt-4 overflow-hidden rounded-lg border border-[var(--ws-border)]">
+              {project.supplierJobs.length ? (
+                project.supplierJobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className="border-b border-[var(--ws-border)] p-4 last:border-0"
+                  >
+                    <p className="text-[14px] font-medium text-[#e4e4e7]">
+                      {job.provider} · {job.externalServiceId}
+                    </p>
+                    <div className="mt-2">
+                      <StateDot state={job.state} />
+                    </div>
+                    <p className="mt-2 text-[13px] text-[#85858e]">
+                      Committed {formatMoney(job.committedMinor, job.currency)}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="p-4 text-[14px] leading-5 text-[#92929b]">
+                  No agents hired. Supplier matches on a quote are observations only.
+                </p>
+              )}
+            </div>
+          </section>
+          <section className="border-t border-[var(--ws-border)] pt-6">
+            <h2 className="text-[15px] font-semibold">Financial status</h2>
+            <dl className="mt-4 space-y-3 text-[14px]">
+              <div className="flex justify-between gap-3">
+                <dt className="text-[#85858e]">Funding</dt>
+                <dd>{demoPayment ? "Simulated" : "No payment record"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[#85858e]">Supplier spending</dt>
+                <dd>{project.supplierJobs.length ? "See agents" : "None recorded"}</dd>
+              </div>
+            </dl>
+            <Link
+              href="/app/treasury"
+              className="mt-4 inline-block text-[14px] text-[#a78bfa] hover:text-white"
+            >
+              View treasury →
+            </Link>
+          </section>
+          <div className="border-t border-[var(--ws-border)] pt-5 text-[14px] leading-5 text-[#85858e]">
+            Execution is paused until supplier procurement, funding verification, and spend
+            approvals are available.
+          </div>
+        </aside>
+      </div>
+    </main>
+  );
 }
 
-function formatMinor(minor: bigint, currency: string) {
-  const value = minor.toString().padStart(3, "0");
-  return `${currency} ${value.slice(0, -2)}.${value.slice(-2)}`;
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-[var(--ws-surface)] p-4">
+      <dt className="text-[13px] text-[#85858e]">{label}</dt>
+      <dd className="mt-2 text-[15px] font-semibold text-[#ededf0]">{value}</dd>
+    </div>
+  );
 }

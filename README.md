@@ -22,7 +22,7 @@ The current product foundation includes:
 - a database-backed customer application shell and universal natural-language service request flow;
 - persistent Auth.js Google identities and sessions through PostgreSQL;
 - explicit request, project, supplier-job, payment, receipt, audit, and ledger state models;
-- local PostgreSQL, Redis, and S3-compatible storage services.
+- local PostgreSQL, Redis, and S3-compatible development storage services.
 
 Use `pnpm check:web` for TypeScript validation and `pnpm build:web` for a production build. Both commands generate Prisma Client from the repository schema before type checking. The Manager uses category-aware rules to create a plan, then checks the live supplier catalog before offering a quote. Supplier availability is observed, not reserved.
 

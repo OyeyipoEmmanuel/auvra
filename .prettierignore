@@ -1,0 +1,10 @@
+**/node_modules/
+**/.next/
+**/next-env.d.ts
+**/*.tsbuildinfo
+dist/
+coverage/
+apps/video/
+prisma/migrations/
+pnpm-lock.yaml
+.env*

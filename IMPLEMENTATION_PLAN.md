@@ -13,9 +13,21 @@ The product boundary is non-negotiable:
 - Feasibility, supplier availability, funding, work completion, settlement, and profit must never be fabricated.
 - LLMs may recommend and evaluate; deterministic services authorize state changes and financial side effects.
 
+## Live-market decision and current state — 6 November 2026
+
+**Decision:** The next delivery target is a real, paid NEAR Agent Market supplier transaction and a customer flow backed by verified live funding. `DEMO_SANDBOX` remains available only for isolated development and regression checks. It is not a launch path, and existing `DEMO_USDC` project records must never be relabelled as paid or used to authorize a real hire.
+
+**Implemented locally:** Google/Auth.js identity and protected customer routes; universal request submission; rule-based manager analysis and clarification; live read-only supplier catalog observations and matching; quote presentation/acceptance; demo funding; a conditional Bachs USD sandbox/live checkout and provider-verified webhook flow for same-asset USD quotes; balanced collection and reserve journals; versioned spend policy, operator approval checks, and atomic reservations. A fail-closed, read-only Agent Market buyer identity/balance probe and the initial BullMQ/PostgreSQL outbox worker are coded and locally tested, but the buyer OAuth credential is not yet durably connected. A small Rust NEAR hash-only receipt registry, worker anchor adapter, and local Linux sandbox test are implemented. The web app still hosts its own API and manager logic; the Render worker is not deployed.
+
+**Still required before live use:** verify the merchant's USD collection, fee, settlement, refund, and webhook capabilities with the actual Bachs account; connect and exercise the buyer OAuth credential against the real account; complete provider-backed fee/refund/revenue reconciliation; verify the receipt signer and contract on testnet and mainnet; finish the durable worker's remaining queue consumers and external-action idempotency; build the paid marketplace create-job/monitor/accept adapter, deliverable QA, and customer acceptance. The local payment tests use a mocked provider response and do not prove a real charge. Auvra cannot hire or complete a supplier job today. A `LIVE_MARKET` environment flag by itself changes none of these facts.
+
+**Immediate operating rule:** No real hire is triggered by changing an environment variable or by accepting a quote. The first paid transaction requires an exact supplier, listing version, job payload, asset, total amount, customer funding receipt, spending cap, authorized operator approval, and a recorded reconciliation path. Live credentials stay server-side. No paid action occurs as part of updating this plan.
+
+The marketplace's [current job terms](https://market.near.ai/job-terms) say payment is collected at hire on the selected USD or USDC rail; the held funds are not legally described as escrow; and inaction during the selected acceptance window can release funds to the supplier. Capture the listing terms, refund policy, acceptance deadline, and dispute options at hire, schedule review before the deadline, and never call provider acceptance automatically before Auvra QA. The [published SDK examples](https://github.com/nearai/agents-market-sdk/blob/main/packages/market/README.md) describe job creation, polling, messaging, and acceptance, but Phase 0 found route drift; verify the exact current live API/MCP operations read-only before coding a paid call.
+
 ## Delivery objective
 
-Ship one complete, auditable vertical slice in which a customer signs in, submits a natural-language request, answers dynamic clarifications, approves a scoped quote, passes an explicit verified or sandbox funding gate, and receives work from at least one real NEAR Agent Market supplier. Auvra must record supplier cost, QA, customer acceptance, and reconciled project contribution, then anchor cryptographic project and settlement receipts in Auvra's own small NEAR contract. A materially different request must use the same intake and produce a different plan, even if it is declined because no suitable supplier is available.
+Ship one complete, auditable live vertical slice in which a customer signs in, submits a natural-language request, answers dynamic clarifications, approves a scoped quote, pays through a verified live customer-payment rail, and receives work from at least one real NEAR Agent Market supplier. Auvra must record supplier cost, QA, customer acceptance, and reconciled project contribution, then anchor cryptographic project and settlement receipts in Auvra's own small NEAR contract on the network truthfully shown to the customer. A materially different request must use the same intake and produce a different plan, even if it is declined because no suitable supplier is available.
 
 ## Architecture decisions
 
@@ -28,25 +40,25 @@ Use two deployable services for the hackathon critical path:
 
 Keep planning and QA in TypeScript for the first complete vertical slice. Add the optional Python/FastAPI service only if a specific model or evaluation workflow materially benefits from Python after the typed contracts are stable. This avoids a third deployment boundary during the highest-risk integration work.
 
-Add one deliberately narrow Rust smart contract under `contracts/auvra-receipts`. It is an immutable evidence registry, not an escrow, token, wallet, payment processor, autonomous treasury, or replacement for the internal ledger. Build it with a pinned stable `near-sdk` 5.x release and `cargo-near`; re-check the official repositories before pinning. As of 28 October 2026, the current stable SDK release observed during planning is `near-sdk 5.29.1`.
+The narrow Rust contract at `contracts/auvra-receipts` is an append-only evidence registry, not an escrow, token, wallet, payment processor, autonomous treasury, or replacement for the internal ledger. It uses pinned `near-sdk` 5.25.0 and builds to Wasm locally.
 
 ### Auvra receipt contract boundary
 
 The contract records only public-safe evidence:
 
-- an opaque `project_ref_hash`, accepted scope hash, canonical project-receipt hash, issuer, block timestamp, and schema version;
-- an opaque `settlement_ref_hash`, associated project hash, canonical ledger-transaction hash, provider-receipt hash, issuer, block timestamp, and schema version;
+- an opaque project reference hash, canonical project-record hash, issuer, block timestamp, and schema version; the private canonical record contains the accepted quote/scope hash;
+- an opaque settlement reference hash, canonical settlement-record hash, provider-receipt hash, issuer, block timestamp, and schema version; the private canonical record contains the project and reconciled-ledger hashes;
 - NEP-297-compatible events for receipt creation and authorized-writer changes.
 
 It must never store customer briefs, names, email addresses, private file URLs, supplier messages, secrets, raw invoices, or other personal/confidential data. Amounts and assets remain off-chain by default; their canonical receipt can be independently hashed and verified without publishing commercial terms.
 
-Write methods are restricted to an owner-managed allowlist of dedicated Auvra receipt-writer accounts. Each project receipt and settlement receipt is append-only and uniquely keyed; duplicates are idempotent only when the exact same hash is supplied, while conflicting rewrites fail. Read methods are public. Contract upgrades and writer changes require the owner and emit audit events.
+Write methods are restricted to an owner-managed allowlist of dedicated Auvra receipt-writer accounts. Each project receipt and settlement receipt is append-only and uniquely keyed; duplicates are idempotent only when the exact same hash is supplied, while conflicting rewrites fail. Read methods are public. Writer changes require the owner and emit audit events. Contract-account key custody and upgrade governance must be set before public deployment; the contract itself does not prevent a full-access account key from replacing its code.
 
 ### Persistence and infrastructure
 
 - PostgreSQL is the source of truth for identity, requests, projects, state, approvals, events, and accounting.
 - Redis/BullMQ is transient execution infrastructure; queue contents are not business truth.
-- MinIO locally and S3-compatible private storage in deployment hold attachments and deliverables.
+- S3Mock locally and S3-compatible private storage in deployment hold attachments and deliverables.
 - Prisma owns the schema and migrations.
 - Every state-changing command writes its domain record, immutable audit event, and outbox event atomically.
 - Workers assume at-least-once delivery and make every external side effect idempotent and reconcilable.
@@ -64,9 +76,9 @@ The Phase 0 live marketplace finding overrides stale SDK assumptions: the publis
 
 ### Runtime modes
 
-- `DEMO_SANDBOX`: mock customer payment and optional mock supplier fixtures; all UI, events, and metrics visibly labelled.
-- `LIVE_MARKET`: real marketplace catalog/jobs with explicit spend authorization; customer payment may still be test mode if labelled.
-- Production claims require provider receipts. Never mix sandbox balances, supplier jobs, or revenue with live metrics.
+- `DEMO_SANDBOX`: isolated mock customer payment and optional mock supplier fixtures for development; all UI, events, and metrics visibly labelled.
+- `LIVE_MARKET`: real customer funding and real marketplace jobs only after the live funding, approval, policy, and reconciliation gates below pass. The runtime mode alone must never enable writes.
+- Production claims require customer payment and marketplace provider receipts. Never mix sandbox balances, supplier jobs, or revenue with live metrics.
 
 ## Current repository assessment
 
@@ -74,7 +86,7 @@ The Phase 0 live marketplace finding overrides stale SDK assumptions: the publis
 
 - Next.js 16 application, Tailwind, shadcn-style primitives, Auvra logo, and near-black/purple design tokens.
 - Responsive landing page and universal natural-language intake concept.
-- Docker Compose services for PostgreSQL, Redis, and MinIO.
+- Docker Compose services for PostgreSQL, Redis, and S3Mock.
 - Prisma 7 setup and the initial event/outbox concepts.
 - Phase 0 read-only marketplace discovery, OAuth/PKCE connection, normalization tests, and explicit no-spend posture.
 
@@ -94,7 +106,7 @@ The Phase 0 live marketplace finding overrides stale SDK assumptions: the publis
 - Public agent browsing as a required customer workflow.
 - Optional wallet linking until Google identity and ownership isolation are complete.
 - Multiple concurrent supplier jobs until one real job is safely created, monitored, accepted, and reconciled.
-- Real customer payment until a provider and webhook verification path are proven; use labelled sandbox funding meanwhile.
+- Additional customer payment rails beyond the first verified live integration. Keep labelled sandbox funding only for isolated development and regression checks.
 - Smart-contract custody, escrow, tokens, profit sharing, automated payouts, and treasury governance; the v1 contract only anchors immutable receipts.
 
 ## Milestone sequence
@@ -119,7 +131,7 @@ Each milestone begins with schemas, invariants, and tests. A milestone is comple
 
 **Exit gate**
 
-The team can state exactly which marketplace operations are verified, which are mocked, and which require a separately authorized capped smoke test.
+The team can state exactly which marketplace operations are verified, which are mocked, and which require a capped first live transaction.
 
 ### M1 — Domain model, migrations, identity, and ownership
 
@@ -225,27 +237,29 @@ A plan receives explainable matches derived from genuine observed services, or s
 
 The customer sees and accepts a reproducible, itemized quote whose supplier budget is enforced server-side.
 
-### M6 — Funding, ledger, approvals, and procurement policy
+### M6 — Live customer funding, ledger, approvals, and procurement policy
 
 **Build**
 
-- Select a verified customer payment test route or implement explicit `DEMO_SANDBOX` approval.
-- Add idempotent signed payment event processing; redirects alone never verify payment.
+- Select one supported live customer collection rail and document its country, asset, fees, settlement, refund, and webhook/receipt capabilities. Customer checkout is separate from the marketplace buyer payment rail.
+- Implement server-created live payment intent/checkout and signed, idempotent provider event processing. A redirect, client response, manual database edit, or demo ledger entry never verifies funding.
+- Verify the Auvra marketplace buyer account, available balance or supported payment method, and exact asset before approving a hire. Do not assume NEAR testnet tokens fund the live marketplace.
 - Implement balanced ledger accounts, transactions, and entries per asset.
 - Post customer collection, customer obligation, project reserve, supplier commitment, marketplace escrow, fees, expense, revenue recognition, and refund liabilities separately.
-- Implement versioned policy rules: per-job cap, project cap, daily cap, allowed services/currencies, auto-approval ceiling, contribution floor, and emergency pause.
+- Implement versioned policy rules: per-job cap, project cap, daily cap, allowed services/currencies, auto-approval ceiling, contribution floor, and emergency pause. Require an explicit operator approval for the first live hire and for exceptions.
 - Reserve supplier commitment atomically with approval consumption.
 
 **Tests**
 
-- Forged and duplicate payment events.
+- Forged, duplicate, late, refunded, and disputed payment events.
 - Concurrent reservations cannot exceed project or daily caps.
 - Every ledger transaction balances by asset; deposits are not recognized as profit.
 - Pause prevents new spend while preserving monitoring.
+- Existing `DEMO_USDC` projects and customer browser edits cannot pass the live funding gate.
 
 **Exit gate**
 
-No procurement path can execute without verified/sandbox funding, a valid approval, an atomic reservation, and an audit record.
+No live procurement path can execute without a verified live customer payment, a confirmed marketplace funding method/balance, valid approval, atomic reservation, and audit record.
 
 ### M6A — Rust NEAR project and settlement receipt contract
 
@@ -259,7 +273,7 @@ No procurement path can execute without verified/sandbox funding, a valid approv
 - Define one canonical JSON serialization and SHA-256 hashing specification shared by Rust and TypeScript.
 - Add `ReceiptAnchorAdapter` to the worker. It submits a project receipt only after immutable scope acceptance and a settlement receipt only after ledger/provider reconciliation.
 - Persist NEAR transaction hash, signer, network, contract account, receipt hash, block reference, submission state, and last reconciliation time in PostgreSQL.
-- Deploy to a local sandbox first, then NEAR testnet. Mainnet deployment is explicitly outside the hackathon critical path unless separately approved.
+- Develop and verify in a local sandbox and NEAR testnet. If Auvra advertises public on-chain receipts for live customer projects, deploy and verify the receipt registry on NEAR mainnet before making that claim. This evidence contract never moves customer or supplier funds.
 
 **Tests**
 
@@ -271,7 +285,7 @@ No procurement path can execute without verified/sandbox funding, a valid approv
 
 **Exit gate**
 
-On NEAR testnet, a project receipt and its later settlement receipt can be independently queried and verified against the private canonical records. Duplicate delivery cannot create conflicting receipts, unauthorized accounts cannot write, and the contract has no capability to custody or transfer funds.
+Project and settlement receipts can be independently queried on the network shown in the UI and verified against private canonical records. A testnet proof is labelled testnet; a live mainnet proof requires a separately verified mainnet deployment. Duplicate delivery cannot create conflicting receipts, unauthorized accounts cannot write, and the contract has no capability to custody or transfer funds.
 
 ### M7 — Durable orchestration and transactional outbox
 
@@ -291,17 +305,18 @@ On NEAR testnet, a project receipt and its later settlement receipt can be indep
 
 **Exit gate**
 
-A sandbox project survives process restarts and completes without duplicate tasks, hires, or ledger entries.
+A project survives process restarts without duplicate tasks, hires, or ledger entries; the same invariant is verified against live read-only reconciliation before the first paid call.
 
-### M8 — Real marketplace job vertical slice
+### M8 — First live marketplace job and supervision
 
 **Build**
 
-- Add separately gated hire preparation showing exact provider, service, payload, amount, asset, deadline, and authorization.
-- After explicit smoke-test authorization and verified funding, create one capped real external job.
+- Recheck the live marketplace's current job-create, read, message, correction, acceptance, payment, and refund semantics against its actual API/MCP surface. Pin the verified request/response contracts; do not assume the published SDK examples match the running service.
+- Prepare the first hire with exact provider, service and listing snapshot, payload, amount, asset, delivery deadline, acceptance window, refund policy, and approval. The first job is a deliberately small live transaction with a hard cap, not an uncapped production switch.
+- After M6's verified live funding and operator approval, create one capped real external job. Store the approval and idempotency key before calling the provider.
 - Persist request hash and remote identifiers before or immediately after the provider response according to the proven reconciliation strategy.
 - Poll or subscribe to status with backoff; store raw status, normalized state, messages, artifacts, and last-seen timestamps.
-- Implement provider-specific correction messaging and acceptance only where verified.
+- Persist the marketplace's review deadline; alert and escalate early enough to avoid acceptance by inaction. Implement provider-specific correction, dispute, and acceptance only where verified; accept only after Auvra QA and the applicable customer-review policy.
 - After the scope is immutable, anchor the project receipt through `ReceiptAnchorAdapter`; do not block supplier execution indefinitely on a transient chain outage—record a recoverable anchoring state and retry safely.
 
 **Tests**
@@ -309,11 +324,12 @@ A sandbox project survives process restarts and completes without duplicate task
 - Timeout after remote creation reconciles before retry.
 - Repeated polls and provider events are idempotent.
 - Unknown provider state pauses instead of guessing.
-- Live smoke evidence is redacted and recorded separately from fixtures.
+- Live transaction evidence is redacted and recorded separately from fixtures.
+- A provider timeout, insufficient marketplace funds, missed review deadline, or unclear fee/settlement state pauses further hires.
 
 **Exit gate**
 
-One authorized real supplier job is created, observed through completion, and accepted/settled only according to verified provider semantics. If blocked, the exact external limitation is documented and the UI remains honestly sandbox-labelled.
+One authorized, capped real supplier job is created, observed through completion, reviewed before the marketplace deadline, and accepted/settled only according to verified provider semantics. If blocked, the exact external limitation is documented and no live-hire claim is made.
 
 ### M9 — QA, revisions, artifacts, and customer delivery
 
@@ -414,7 +430,7 @@ Every write endpoint requires schema validation, ownership/RBAC, an idempotency 
 
 - Two unrelated requests through one intake.
 - Clarification and unsupported paths.
-- Quote approval and sandbox funding.
+- Quote approval, verified live customer funding, and a capped first live hire; retain sandbox funding as a separate regression path.
 - Real capped supplier job when separately authorized.
 - QA pass/failure/revision.
 - Cross-user isolation.
@@ -422,29 +438,14 @@ Every write endpoint requires schema validation, ownership/RBAC, an idempotency 
 - Emergency pause.
 - Honest external outage and sandbox labelling.
 
-## Fourteen-day execution map
+## Execution sequence from the current repository
 
-- Days 1–2: M0 and marketplace paid-lifecycle investigation; CI and environment validation.
-- Days 3–4: M1–M2 database, auth, ownership, universal request, and files.
-- Days 5–6: M3 manager analysis, clarification, feasibility, and two-category fixtures.
-- Days 7–8: M4–M6 supplier matching, quotes, sandbox funding, ledger, and policy.
-- Day 8 in parallel with backend work: M6A receipt contract, sandbox tests, and TypeScript/Rust hash vectors.
-- Days 9–10: M7–M8 durable orchestration and one separately authorized real job.
-- Day 11: M9 QA, revisions, and delivery.
-- Day 12: M10 reconciliation and operator console.
-- Day 13: M11 authorization, concurrency, restart, accessibility, and E2E hardening.
-- Day 14: reproducible deployment, live evidence, demo rehearsal, and submission.
+1. **Restore and verify identity locally.** Start the local PostgreSQL service, complete Google sign-in/sign-out/session checks, and add cross-user and operator-role tests. A broken local login blocks meaningful end-to-end validation.
+2. **Prove both live money boundaries.** Choose one customer checkout provider; verify signed payment events and refunds. Separately verify the marketplace buyer's current account, USD/USDC funding method, available balance, listing terms, job-create contract, status reads, review window, and settlement receipts. Record exact evidence before enabling writes.
+3. **Build the durable worker and spending gate.** Add outbox delivery, idempotency, task scheduling, policy caps, atomic reservations, emergency pause, and operator approval. Enable marketplace writes only when all gates pass, with a first-job hard cap.
+4. **Run one small live supplier job.** Use a newly verified live-funded request, display the exact purchase, obtain the recorded operator approval, create the job once, reconcile ambiguous outcomes, monitor delivery, and act before the marketplace acceptance deadline.
+5. **Complete QA, customer delivery, and reconciliation.** Validate the artifact, support bounded correction/dispute where the provider permits it, obtain customer acceptance, reconcile customer and supplier receipts, and show actual cost and contribution.
+6. **Finish receipts and release work.** Implement the Rust evidence contract, label testnet/mainnet accurately, complete private files, operator controls, observability, security and end-to-end tests, and deployment runbooks. Deploy the worker only after its job/retry controls are verified.
 
-If schedule pressure occurs, reduce UI breadth, optional wallet linking, and multi-supplier execution first. Do not cut real integration evidence, ownership isolation, spend policy, idempotency, QA, truthful status, or ledger correctness.
-
-## Immediate next milestone
-
-Begin M0/M1 with no paid marketplace action:
-
-1. Move the corrected PRD into the repository as the canonical specification and mark the earlier PRD superseded.
-2. Replace the current Prisma skeleton with v2 aggregates and state enums, then generate the reviewed baseline migration.
-3. Add persistent Auth.js models and ownership/RBAC tests.
-4. Restructure routes to `/app/**` and `/ops/**`, using database-backed empty states rather than simulated financial claims.
-5. Keep the existing universal intake UI, but wire it only after the request command and ownership boundary pass tests.
-6. Scaffold the receipt contract only after canonical receipt schemas and privacy boundaries are reviewed; contract work must not delay M0/M1 identity and ownership correctness.
+If schedule pressure occurs, reduce UI breadth, optional wallet linking, and multi-supplier execution first. Do not cut live funding evidence, ownership isolation, spend policy, idempotency, QA, acceptance-window monitoring, truthful status, or ledger correctness. No plan edit, environment toggle, Git push, or deployment authorizes a supplier purchase by itself.
 

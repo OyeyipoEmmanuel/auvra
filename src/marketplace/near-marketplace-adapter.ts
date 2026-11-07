@@ -9,7 +9,8 @@ export class NearMarketplaceAdapter implements MarketplaceAdapter {
     const response = await fetcher(`${this.config.baseUrl}${path}`, {
       headers: { Accept: "application/json" },
     });
-    if (!response.ok) throw new Error(`Marketplace catalog request failed with HTTP ${response.status}`);
+    if (!response.ok)
+      throw new Error(`Marketplace catalog request failed with HTTP ${response.status}`);
     return response.json() as Promise<unknown>;
   }
 
@@ -18,9 +19,13 @@ export class NearMarketplaceAdapter implements MarketplaceAdapter {
     if (filter.category) query.set("category", filter.category);
     const agents = parseAgents(await this.getJson(`/v1/agents?${query}`));
     const fetchedAt = new Date().toISOString();
-    return Promise.all(agents.map(async (agent) => {
-      const plans = parsePricingPlans(await this.getJson(`/v1/agents/${agent.agent_id}/pricing-plans`));
-      return normalizeAgentOffer(agent, plans, fetchedAt);
-    }));
+    return Promise.all(
+      agents.map(async (agent) => {
+        const plans = parsePricingPlans(
+          await this.getJson(`/v1/agents/${agent.agent_id}/pricing-plans`),
+        );
+        return normalizeAgentOffer(agent, plans, fetchedAt);
+      }),
+    );
   }
 }

@@ -5,6 +5,8 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: { path: "prisma/migrations" },
   datasource: {
-    url: process.env.DATABASE_URL ?? "postgresql://auvra:auvra_local@localhost:55432/auvra?schema=public",
+    url:
+      process.env.DATABASE_URL ??
+      "postgresql://auvra:auvra_local@localhost:55432/auvra?schema=public",
   },
 });

@@ -1,24 +1,74 @@
 import Link from "next/link";
-import { Bell, Settings, ShieldCheck } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
-import { AppSidebarNav } from "@/components/app-sidebar";
+import { AppSidebarNav, MobileWorkspaceNav } from "@/components/app-sidebar";
 import { Brand } from "@/components/brand";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
-export function AppShell({ children, userName }: { children: React.ReactNode; userName?: string | null }) {
-  const initials = userName?.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "AU";
-
+export function AppShell({
+  children,
+  userName,
+}: {
+  children: React.ReactNode;
+  userName?: string | null;
+}) {
+  const initials =
+    userName
+      ?.split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "AU";
   return (
-    <div className="min-h-screen bg-[#09090a] text-white">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-white/[.08] bg-[#111113] lg:flex lg:flex-col">
-        <div className="flex h-16 items-center border-b border-white/[.08] px-5"><Brand /></div>
-        <div className="px-4 py-5"><Badge variant="neutral" className="w-full justify-center"><span className="size-1.5 rounded-full bg-amber-300" /> Demo sandbox</Badge></div>
-        <AppSidebarNav />
-        <div className="mt-auto space-y-1 border-t border-white/[.08] p-3"><Link href="/app" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-500 hover:text-white"><ShieldCheck className="size-4" />Operating controls</Link><Link href="/app" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-500 hover:text-white"><Settings className="size-4" />Settings</Link></div>
+    <div className="workspace min-h-screen bg-[var(--ws-bg)] text-[var(--ws-text)]">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col border-r border-[var(--ws-border)] bg-[var(--ws-sidebar)] lg:flex">
+        <div className="flex h-15 items-center border-b border-[var(--ws-border)] px-5">
+          <Brand />
+        </div>
+        <div className="px-3 pb-5 pt-6">
+          <p className="px-3 pb-2 text-[12px] font-semibold uppercase tracking-[.13em] text-[#696971]">
+            Workspace
+          </p>
+          <AppSidebarNav />
+        </div>
+        <div className="mt-auto border-t border-[var(--ws-border)] px-3 py-3">
+          <div className="mb-3 flex items-center gap-2 px-3 text-[13px] text-[#85858e]">
+            <span className="size-1.5 rounded-full bg-amber-400" />
+            Development sandbox
+          </div>
+          <Link
+            href="/app/settings"
+            className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-[#1c1c1e]"
+          >
+            <span className="grid size-8 place-items-center rounded-md border border-[#343438] bg-[#222225] text-[13px] font-semibold">
+              {initials}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[14px] text-[#d8d8db]">
+              {userName || "Account"}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className="size-3.5 text-[#777780]"
+            />
+          </Link>
+        </div>
       </aside>
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/[.08] bg-[#09090a]/90 px-5 backdrop-blur-xl sm:px-8 lg:px-10"><div className="lg:hidden"><Brand compact /></div><div className="hidden font-mono text-[10px] uppercase tracking-[.15em] text-zinc-600 lg:block">Customer workspace · demo sandbox</div><div className="flex items-center gap-3"><Button variant="ghost" size="icon" aria-label="Notifications"><Bell className="size-4" /></Button><div className="grid size-9 place-items-center rounded-full bg-violet-600 text-xs font-semibold" aria-label={userName ? `${userName} account` : "Customer account"}>{initials}</div></div></header>
+      <div className="min-w-0 lg:pl-[232px]">
+        <header className="sticky top-0 z-30 flex h-15 items-center justify-between border-b border-[var(--ws-border)] bg-[var(--ws-bg)] px-5 sm:px-8 lg:px-10">
+          <div className="flex items-center gap-3 lg:hidden">
+            <MobileWorkspaceNav />
+            <Brand />
+          </div>
+          <span className="hidden text-[14px] text-[#74747c] lg:inline">
+            Auvra <span className="mx-2 text-[#45454b]">/</span> Workspace
+          </span>
+          <Link
+            href="/app/settings"
+            aria-label="Account settings"
+            className="grid size-8 place-items-center rounded-full border border-[#343438] bg-[#1b1b1d] text-[13px] font-semibold text-[#e7e7e9] lg:hidden"
+          >
+            {initials}
+          </Link>
+        </header>
         {children}
       </div>
     </div>

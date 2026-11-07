@@ -17,16 +17,16 @@ services:
     ports: ["6379:6379"]
     command: ["redis-server", "--appendonly", "yes"]
     volumes: ["auvra_redis:/data"]
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z
-    command: server /data --console-address ":9001"
+  s3mock:
+    image: adobe/s3mock:5.2.3
     environment:
-      MINIO_ROOT_USER: auvra_local
-      MINIO_ROOT_PASSWORD: auvra_local_secret
-    ports: ["9000:9000", "9001:9001"]
-    volumes: ["auvra_minio:/data"]
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: auvra-local
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    ports: ["9000:9090"]
+    volumes: ["auvra_s3mock:/s3mockroot"]
 
 volumes:
   auvra_postgres:
   auvra_redis:
-  auvra_minio:
+  auvra_s3mock:

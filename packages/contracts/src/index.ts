@@ -3,42 +3,124 @@ import { z } from "zod";
 export const runtimeModes = ["DEMO_SANDBOX", "LIVE_MARKET"] as const;
 export const runtimeModeSchema = z.enum(runtimeModes);
 
-export const serviceRequestSchema = z.object({
-  rawBrief: z.string().min(12).max(8000),
+const requestFields = {
+  rawBrief: z.string().max(8000),
   desiredOutcome: z.string().trim().max(1000).optional(),
-  budgetMinor: z.string().regex(/^\d+$/).optional(),
+  budgetMinor: z
+    .string()
+    .regex(/^[1-9]\d{0,17}$/)
+    .optional(),
   budgetCurrency: z.string().trim().toUpperCase().min(3).max(12).optional(),
   preferredDeadline: z.string().datetime().optional(),
   constraints: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
   attachmentIds: z.array(z.string().uuid()).max(10).default([]),
-  consentToExternalAgentProcessing: z.literal(true),
-}).superRefine((value, context) => {
-  if ((value.budgetMinor && !value.budgetCurrency) || (!value.budgetMinor && value.budgetCurrency)) {
-    context.addIssue({ code: "custom", path: ["budgetCurrency"], message: "Budget amount and currency must be provided together." });
+};
+
+function checkBudget(
+  value: { budgetMinor?: string | undefined; budgetCurrency?: string | undefined },
+  context: z.RefinementCtx,
+) {
+  if (
+    (value.budgetMinor && !value.budgetCurrency) ||
+    (!value.budgetMinor && value.budgetCurrency)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["budgetCurrency"],
+      message: "Budget amount and currency must be provided together.",
+    });
   }
-});
+}
+
+export const draftRequestSchema = z.object(requestFields).superRefine(checkBudget);
+
+export const serviceRequestSchema = z
+  .object({
+    ...requestFields,
+    rawBrief: z
+      .string()
+      .max(8000)
+      .refine((value) => value.trim().length >= 12),
+    consentToExternalAgentProcessing: z.literal(true),
+  })
+  .superRefine((value, context) => {
+    checkBudget(value, context);
+    if (value.preferredDeadline && new Date(value.preferredDeadline).getTime() <= Date.now()) {
+      context.addIssue({
+        code: "custom",
+        path: ["preferredDeadline"],
+        message: "The requested deadline must be in the future.",
+      });
+    }
+  });
 
 export const requestStates = [
-  "DRAFT", "SUBMITTED", "ANALYZING", "NEEDS_CLARIFICATION", "SCOPED", "QUOTED", "APPROVED",
-  "AWAITING_FUNDS", "FUNDED", "PROJECT_CREATED", "UNSUPPORTED", "REJECTED", "CANCELLED", "EXPIRED",
+  "DRAFT",
+  "SUBMITTED",
+  "ANALYZING",
+  "NEEDS_CLARIFICATION",
+  "SCOPED",
+  "QUOTED",
+  "APPROVED",
+  "AWAITING_FUNDS",
+  "FUNDED",
+  "PROJECT_CREATED",
+  "UNSUPPORTED",
+  "REJECTED",
+  "CANCELLED",
+  "EXPIRED",
 ] as const;
 
 export const projectStates = [
-  "PLANNING", "PROCUREMENT", "RUNNING", "QA", "CUSTOMER_REVIEW", "DELIVERED", "CLOSED",
-  "BLOCKED", "REVISION", "DISPUTED", "CANCELLED", "FAILED",
+  "PLANNING",
+  "PROCUREMENT",
+  "RUNNING",
+  "QA",
+  "CUSTOMER_REVIEW",
+  "DELIVERED",
+  "CLOSED",
+  "BLOCKED",
+  "REVISION",
+  "DISPUTED",
+  "CANCELLED",
+  "FAILED",
 ] as const;
 
 export const supplierJobStates = [
-  "PROPOSED", "APPROVED_TO_HIRE", "CREATE_PENDING", "HIRED", "ACTIVE", "SUBMITTED", "QA_PASSED", "ACCEPTED",
-  "QA_FAILED", "REVISION_REQUESTED", "CANCELLED", "FAILED", "EXPIRED",
+  "PROPOSED",
+  "APPROVED_TO_HIRE",
+  "CREATE_PENDING",
+  "HIRED",
+  "ACTIVE",
+  "SUBMITTED",
+  "QA_PASSED",
+  "ACCEPTED",
+  "QA_FAILED",
+  "REVISION_REQUESTED",
+  "CANCELLED",
+  "FAILED",
+  "EXPIRED",
 ] as const;
 
 export const paymentStates = [
-  "CREATED", "PENDING", "VERIFIED", "ALLOCATED", "RECONCILED", "FAILED", "REFUND_PENDING", "REFUNDED", "DISPUTED",
+  "CREATED",
+  "PENDING",
+  "VERIFIED",
+  "ALLOCATED",
+  "RECONCILED",
+  "FAILED",
+  "REFUND_PENDING",
+  "REFUNDED",
+  "DISPUTED",
 ] as const;
 
 export const receiptAnchorStates = [
-  "PENDING", "SUBMITTED", "CONFIRMED", "RETRY_PENDING", "RECONCILIATION_REQUIRED", "FAILED",
+  "PENDING",
+  "SUBMITTED",
+  "CONFIRMED",
+  "RETRY_PENDING",
+  "RECONCILIATION_REQUIRED",
+  "FAILED",
 ] as const;
 
 export const requestStateSchema = z.enum(requestStates);
@@ -118,11 +200,19 @@ export const receiptAnchorTransitions = {
   FAILED: [],
 } satisfies StateMap<ReceiptAnchorState>;
 
-export function canTransition<TState extends string>(map: StateMap<TState>, from: TState, to: TState): boolean {
+export function canTransition<TState extends string>(
+  map: StateMap<TState>,
+  from: TState,
+  to: TState,
+): boolean {
   return map[from].includes(to);
 }
 
-export function assertTransition<TState extends string>(map: StateMap<TState>, from: TState, to: TState): void {
+export function assertTransition<TState extends string>(
+  map: StateMap<TState>,
+  from: TState,
+  to: TState,
+): void {
   if (!canTransition(map, from, to)) throw new Error(`Illegal state transition: ${from} -> ${to}`);
 }
 

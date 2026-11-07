@@ -31,10 +31,13 @@ export class EphemeralOAuthProvider implements OAuthClientProvider {
   }
 
   verifyCallbackState(params: URLSearchParams): void {
-    if (params.get("state") !== this.expectedState) throw new Error("OAuth callback state mismatch");
+    if (params.get("state") !== this.expectedState)
+      throw new Error("OAuth callback state mismatch");
   }
 
-  clientInformation(_ctx?: OAuthClientInformationContext): StoredOAuthClientInformation | undefined {
+  clientInformation(
+    _ctx?: OAuthClientInformationContext,
+  ): StoredOAuthClientInformation | undefined {
     return this.clientInfo;
   }
 

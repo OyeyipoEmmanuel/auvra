@@ -11,20 +11,26 @@ describe("runtime configuration", () => {
   });
 
   it("rejects writes in sandbox mode", () => {
-    expect(() => readEnv({ MARKETPLACE_WRITES_ENABLED: "true", MARKETPLACE_MAX_SPEND_MINOR: "50" })).toThrow();
+    expect(() =>
+      readEnv({ MARKETPLACE_WRITES_ENABLED: "true", MARKETPLACE_MAX_SPEND_MINOR: "50" }),
+    ).toThrow();
   });
 
   it("rejects incomplete live mode", () => {
-    expect(() => readEnv({ AUVRA_RUNTIME_MODE: "LIVE_MARKET" })).toThrow(/DATABASE_URL and REDIS_URL/);
+    expect(() => readEnv({ AUVRA_RUNTIME_MODE: "LIVE_MARKET" })).toThrow(
+      /DATABASE_URL and REDIS_URL/,
+    );
   });
 
   it("requires a positive cap before live writes", () => {
-    expect(() => readEnv({
-      AUVRA_RUNTIME_MODE: "LIVE_MARKET",
-      DATABASE_URL: "postgresql://localhost/auvra",
-      REDIS_URL: "redis://localhost:6379",
-      MARKETPLACE_WRITES_ENABLED: "true",
-      MARKETPLACE_MAX_SPEND_MINOR: "0",
-    })).toThrow(/spend ceiling/);
+    expect(() =>
+      readEnv({
+        AUVRA_RUNTIME_MODE: "LIVE_MARKET",
+        DATABASE_URL: "postgresql://localhost/auvra",
+        REDIS_URL: "redis://localhost:6379",
+        MARKETPLACE_WRITES_ENABLED: "true",
+        MARKETPLACE_MAX_SPEND_MINOR: "0",
+      }),
+    ).toThrow(/spend ceiling/);
   });
 });

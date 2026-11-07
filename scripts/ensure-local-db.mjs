@@ -26,15 +26,27 @@ async function portOpen() {
   return new Promise((resolve) => {
     const socket = net.createConnection({ host: host === "localhost" ? "127.0.0.1" : host, port });
     socket.setTimeout(800);
-    socket.once("connect", () => { socket.destroy(); resolve(true); });
-    socket.once("error", () => { socket.destroy(); resolve(false); });
-    socket.once("timeout", () => { socket.destroy(); resolve(false); });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("error", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
   });
 }
 
 async function dockerReady() {
   try {
-    await execFileAsync("docker", ["info", "--format", "{{.ServerVersion}}"], { timeout: 5000, windowsHide: true });
+    await execFileAsync("docker", ["info", "--format", "{{.ServerVersion}}"], {
+      timeout: 5000,
+      windowsHide: true,
+    });
     return true;
   } catch {
     return false;
@@ -43,11 +55,15 @@ async function dockerReady() {
 
 async function postgresReady() {
   try {
-    await execFileAsync("docker", ["compose", "exec", "-T", "postgres", "pg_isready", "-U", "auvra", "-d", "auvra"], {
-      cwd: root,
-      timeout: 5000,
-      windowsHide: true,
-    });
+    await execFileAsync(
+      "docker",
+      ["compose", "exec", "-T", "postgres", "pg_isready", "-U", "auvra", "-d", "auvra"],
+      {
+        cwd: root,
+        timeout: 5000,
+        windowsHide: true,
+      },
+    );
     return await portOpen();
   } catch {
     return false;
@@ -67,12 +83,17 @@ if (!localHost || (host !== "localhost" && host !== "127.0.0.1") || port !== 554
   process.exit(0);
 }
 
-if (await portOpen() && await postgresReady()) process.exit(0);
+if ((await portOpen()) && (await postgresReady())) process.exit(0);
 
 console.log("Local PostgreSQL is offline. Starting the Auvra database...");
 if (!(await dockerReady())) {
   if (process.platform === "win32") {
-    const desktop = path.join(process.env.PROGRAMFILES || "C:\\Program Files", "Docker", "Docker", "Docker Desktop.exe");
+    const desktop = path.join(
+      process.env.PROGRAMFILES || "C:\\Program Files",
+      "Docker",
+      "Docker",
+      "Docker Desktop.exe",
+    );
     if (existsSync(desktop)) {
       const { spawn } = await import("node:child_process");
       const child = spawn(desktop, [], { detached: true, stdio: "ignore", windowsHide: true });
@@ -80,7 +101,9 @@ if (!(await dockerReady())) {
     }
   }
   if (!(await waitUntil(dockerReady, 30, 3000))) {
-    console.error("Docker Desktop did not start. Open Docker Desktop, then run pnpm dev:web again.");
+    console.error(
+      "Docker Desktop did not start. Open Docker Desktop, then run pnpm dev:web again.",
+    );
     process.exit(1);
   }
 }
