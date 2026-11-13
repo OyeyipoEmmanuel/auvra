@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         actorId: user.id,
         eventType: "REQUEST_SUBMITTED",
         requestId: id,
-        metadataJson: { fromDraft: true },
+        metadataJson: { fromDraft: true, externalAgentConsent: true },
       },
     });
     await tx.outboxEvent.create({

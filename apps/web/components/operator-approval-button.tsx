@@ -26,7 +26,11 @@ export function OperatorApprovalButton({
       const response = await fetch(`/api/ops/supplier-jobs/${jobId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmed: true, expectedAmountMinor: priceMinor }),
+        body: JSON.stringify({
+          confirmed: true,
+          consentToShare: true,
+          expectedAmountMinor: priceMinor,
+        }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Approval failed.");
@@ -51,11 +55,11 @@ export function OperatorApprovalButton({
         </button>
       ) : (
         <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-5">
-          <h2 className="text-lg font-semibold">Confirm this supplier proposal</h2>
+          <h2 className="text-lg font-semibold">Authorize this supplier hire</h2>
           <p className="mt-2 text-[14px] leading-6 text-zinc-300">
-            Approve {label} only. This records an internal spending approval; it does not hire or
-            pay the agent. The marketplace approval page is a separate later step that can charge
-            the buyer wallet.
+            Approve {label} only. If direct hiring is enabled, Auvra can hire this agent and charge
+            its marketplace buyer wallet after the worker repeats the payment, price, balance, and
+            policy checks. Otherwise, Auvra prepares a draft for approval on NEAR Market.
           </p>
           <label className="mt-4 flex items-start gap-3 text-[14px] text-zinc-200">
             <input
@@ -65,7 +69,8 @@ export function OperatorApprovalButton({
               className="mt-1 accent-violet-500"
             />
             I reviewed the exact supplier, task, price, currency, and customer funding evidence
-            above.
+            above, and authorize Auvra to share the displayed brief and initiate this supplier hire
+            at the displayed {label} price.
           </label>
           {error && (
             <p

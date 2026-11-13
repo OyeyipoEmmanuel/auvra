@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, FlaskConical, LoaderCircle } from "lucide-react";
+import { ArrowRight, LoaderCircle, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,7 +18,6 @@ export function SandboxFundingPanel({
   projectId?: string;
 }) {
   const router = useRouter();
-  const [acknowledged, setAcknowledged] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,33 +31,32 @@ export function SandboxFundingPanel({
         projectId?: string;
         error?: { message?: string };
       };
-      if (!response.ok)
-        throw new Error(body.error?.message ?? "Demo funding could not be recorded.");
+      if (!response.ok) throw new Error(body.error?.message ?? "The project could not be started.");
       if (body.projectId) router.push(`/app/projects/${body.projectId}`);
       else router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Demo funding could not be recorded.");
+      setError(cause instanceof Error ? cause.message : "The project could not be started.");
       setPending(false);
     }
   }
 
   return (
-    <Card className="mt-6 border-amber-300/20 p-6 sm:p-8">
+    <Card className="mt-6 border-violet-400/15 p-6 sm:p-8">
       <div className="flex items-start gap-4">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-amber-300/10">
-          <FlaskConical className="size-5 text-amber-200" />
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-violet-400/10">
+          <ShieldCheck className="size-5 text-violet-200" />
         </span>
         <div>
-          <p className="font-mono text-[12px] uppercase tracking-[.14em] text-amber-200">
-            Development sandbox
+          <p className="font-mono text-[12px] uppercase tracking-[.14em] text-violet-200">
+            Project setup
           </p>
           <h2 className="mt-2 text-xl font-medium">
-            {projectId ? "Demo project created" : "Simulate funding for this quote"}
+            {projectId ? "Project ready" : "Continue to your project"}
           </h2>
           <p className="mt-2 text-[15px] leading-6 text-zinc-400">
             {projectId
-              ? "The project and demo ledger are ready. No real tokens moved or supplier jobs started."
-              : `Record ${amount} as simulated funds, reserve the supplier budget, and create project tasks. This does not connect a wallet or transfer testnet tokens.`}
+              ? "Your plan, workspace, and project receipt are ready."
+              : `Start the project for the approved ${amount} quote.`}
           </p>
         </div>
       </div>
@@ -74,18 +72,6 @@ export function SandboxFundingPanel({
         </Button>
       ) : (
         <>
-          <label className="mt-6 flex items-start gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(event) => setAcknowledged(event.target.checked)}
-              className="mt-0.5 size-4 accent-violet-600"
-            />
-            <span className="text-[14px] leading-5 text-zinc-400">
-              I understand this is a development simulation. No NEAR or USDC tokens are transferred,
-              and no supplier will be hired.
-            </span>
-          </label>
           {error && (
             <p
               role="alert"
@@ -95,7 +81,7 @@ export function SandboxFundingPanel({
             </p>
           )}
           <Button
-            disabled={!acknowledged || pending}
+            disabled={pending}
             onClick={() => void fund()}
             className="mt-5"
             variant="violet"
@@ -103,12 +89,15 @@ export function SandboxFundingPanel({
             {pending ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
-              <FlaskConical className="size-4" />
+              <ArrowRight className="size-4" />
             )}
-            Create demo funded project
+            Start project
           </Button>
         </>
       )}
+      <p className="mt-4 text-[14px] leading-5 text-zinc-500">
+        No payment is collected at this step. Marketplace agents are not hired by this action.
+      </p>
     </Card>
   );
 }

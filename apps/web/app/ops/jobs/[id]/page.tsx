@@ -111,6 +111,12 @@ export default async function OperatorJobPage({ params }: { params: Promise<{ id
           label="Task state"
           value={job.task.status}
         />
+        {job.externalJobId && (
+          <Card
+            label="NEAR Market job ID"
+            value={job.externalJobId}
+          />
+        )}
       </div>
       <section className="mt-8 rounded-xl border border-zinc-800 p-6">
         <h2 className="text-lg font-semibold">Scope to be shared</h2>
@@ -182,7 +188,7 @@ function Card({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
       <p className="text-[14px] text-zinc-400">{label}</p>
-      <p className="mt-2 text-lg font-semibold">{value}</p>
+      <p className="mt-2 break-all text-lg font-semibold">{value}</p>
     </div>
   );
 }

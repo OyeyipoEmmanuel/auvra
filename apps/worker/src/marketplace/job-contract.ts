@@ -25,6 +25,45 @@ export type PreparedMarketDraft = {
   currency: "USD" | "USDC";
 };
 
+export type CreatedMarketJob = {
+  jobId: string;
+  assignmentId: string;
+  chargedMinor: bigint;
+  currency: "USD" | "USDC";
+  replayed: boolean;
+};
+
+/** The paid endpoint must prove the job, assignment, rail, and exact escrowed price. */
+export function parseCreatedMarketJob(
+  value: unknown,
+  currency: "USD" | "USDC",
+): CreatedMarketJob | null {
+  const body = record(value);
+  if (
+    !body ||
+    typeof body.job_id !== "string" ||
+    !uuid.test(body.job_id) ||
+    typeof body.assignment_id !== "string" ||
+    !uuid.test(body.assignment_id) ||
+    (body.replayed !== undefined && typeof body.replayed !== "boolean")
+  ) {
+    return null;
+  }
+  const price = record(body.price);
+  const amount = price ? price.amount : body.price;
+  const token = price?.token ?? body.token;
+  if (token !== currency) return null;
+  const chargedMinor = exactMinor(amount, currency === "USD" ? 2 : 6);
+  if (chargedMinor === null || chargedMinor <= 0n) return null;
+  return {
+    jobId: body.job_id,
+    assignmentId: body.assignment_id,
+    chargedMinor,
+    currency,
+    replayed: body.replayed === true,
+  };
+}
+
 /** A provider draft is not a hire. A human must approve on the marketplace page. */
 export function parsePreparedMarketDraft(
   value: unknown,

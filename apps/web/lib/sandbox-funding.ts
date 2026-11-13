@@ -4,8 +4,7 @@ import { Prisma } from "@prisma/client";
 
 import { isManagerAnalysis } from "@/lib/manager-analysis";
 import { prisma } from "@/lib/prisma";
-
-const demoAsset = "DEMO_USDC";
+import { noChargeProjectProof } from "../../../src/receipts/no-charge-project";
 
 export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: string) {
   if (
@@ -27,15 +26,21 @@ export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: st
           project: { select: { id: true } },
         },
       },
+      payments: { select: { provider: true, state: true } },
     },
   });
   if (!quote) return { kind: "NOT_FOUND" as const };
   if (quote.request.project)
     return { kind: "ALREADY_FUNDED" as const, projectId: quote.request.project.id };
-  if (quote.state !== "ACCEPTED" || quote.request.state !== "APPROVED")
+  if (quote.state !== "ACCEPTED" || !quote.acceptedAt || quote.request.state !== "APPROVED")
     return { kind: "INVALID_STATE" as const };
-  if (quote.currency !== "USDC" || quote.customerTotalMinor <= BigInt(0))
+  if (!["USD", "USDC"].includes(quote.currency) || quote.customerTotalMinor <= BigInt(0))
     return { kind: "INVALID_QUOTE" as const };
+  if (
+    quote.payments.some((payment) => ["PENDING", "VERIFIED", "ALLOCATED"].includes(payment.state))
+  )
+    return { kind: "PAYMENT_IN_PROGRESS" as const };
+  const demoAsset = `DEMO_${quote.currency}`;
 
   const analysis = quote.request.analysisJson;
   if (
@@ -59,7 +64,7 @@ export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: st
   let selectedCost = BigInt(0);
   for (const task of tasks) {
     const choice = selectedByKey.get(task.key);
-    if (!choice || choice.currency !== "USDC" || !/^\d+$/.test(choice.priceMinor))
+    if (!choice || choice.currency !== quote.currency || !/^\d+$/.test(choice.priceMinor))
       return { kind: "INVALID_QUOTE" as const };
     selectedCost += BigInt(choice.priceMinor);
     if (
@@ -80,6 +85,14 @@ export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: st
   try {
     return await prisma.$transaction(
       async (tx) => {
+        const activePayment = await tx.customerPayment.findFirst({
+          where: {
+            quoteId,
+            state: { in: ["PENDING", "VERIFIED", "ALLOCATED"] },
+          },
+          select: { id: true },
+        });
+        if (activePayment) return { kind: "PAYMENT_IN_PROGRESS" as const };
         const moved = await tx.serviceRequest.updateMany({
           where: { id: quote.request.id, customerId, state: "APPROVED" },
           data: { state: "AWAITING_FUNDS", version: { increment: 1 } },
@@ -104,6 +117,21 @@ export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: st
             allocatedAt: new Date(),
           },
           select: { id: true },
+        });
+
+        const proof = noChargeProjectProof(project.id, {
+          ...quote,
+          acceptedAt: quote.acceptedAt!,
+        });
+        await tx.receiptAnchor.create({
+          data: {
+            projectId: project.id,
+            kind: "PROJECT",
+            schemaVersion: 1,
+            referenceHash: proof.referenceHash,
+            canonicalRecordHash: proof.canonicalRecordHash,
+            network: "testnet",
+          },
         });
 
         const accountSpecs = [
@@ -190,7 +218,7 @@ export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: st
             validationRulesJson: task.acceptanceCriteria,
             status: "PLANNED",
             budgetMinor: BigInt(selectedByKey.get(task.key)!.priceMinor),
-            budgetCurrency: "USDC",
+            budgetCurrency: quote.currency,
             deadline: quote.request.deadline,
           })),
         });
@@ -237,8 +265,8 @@ export async function fundAcceptedQuoteInSandbox(quoteId: string, customerId: st
           data: {
             userId: customerId,
             type: "DEMO_PROJECT_CREATED",
-            title: "Demo project created",
-            body: "Sandbox funding was recorded. No real tokens moved and no supplier was hired.",
+            title: "Project ready",
+            body: "Your approved project and project receipt are ready.",
           },
         });
         return { kind: "FUNDED" as const, projectId: project.id, paymentId: payment.id };

@@ -60,7 +60,7 @@ export default async function ProjectsPage() {
         ) : (
           <WorkspaceEmpty
             title="No projects yet"
-            description="A project appears after you accept a quote and complete its funding step. Demo funding is clearly marked."
+            description="A project appears after you accept a quote and start its workspace."
             href="/app/requests"
             action="View requests"
           />

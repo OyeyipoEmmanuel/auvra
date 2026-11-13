@@ -26,6 +26,9 @@ const provider = await PersistentBuyerOAuthProvider.load(db, buyerCredentialKey(
   console.log(`AUVRA_AUTH_URL=${url.toString()}`);
   console.log("Approve this connection in your browser. No paid marketplace call will be made.");
 });
+const endpoint = process.argv.includes("--pro")
+  ? "https://market.near.ai/mcp/pro"
+  : "https://market.near.ai/mcp";
 
 function waitForCallback() {
   let resolve!: (params: URLSearchParams) => void;
@@ -65,7 +68,7 @@ const client = new Client(
 );
 
 try {
-  const first = new StreamableHTTPClientTransport(new URL("https://market.near.ai/mcp"), {
+  const first = new StreamableHTTPClientTransport(new URL(endpoint), {
     authProvider: provider,
   });
   try {
@@ -74,7 +77,7 @@ try {
     if (!(error instanceof UnauthorizedError)) throw error;
     await first.finishAuth(await callback.params);
     await client.connect(
-      new StreamableHTTPClientTransport(new URL("https://market.near.ai/mcp"), {
+      new StreamableHTTPClientTransport(new URL(endpoint), {
         authProvider: provider,
       }),
     );

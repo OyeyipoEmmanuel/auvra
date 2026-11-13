@@ -31,6 +31,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (
     result.kind === "INVALID_STATE" ||
     result.kind === "INVALID_QUOTE" ||
+    result.kind === "PAYMENT_IN_PROGRESS" ||
     result.kind === "CONFLICT"
   )
     return NextResponse.json(
@@ -38,7 +39,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         error: {
           code: result.kind,
           message:
-            "The accepted quote cannot be demo funded in its current state. Refresh and review it again.",
+            result.kind === "PAYMENT_IN_PROGRESS"
+              ? "A checkout is already in progress for this quote. Check its payment status before continuing."
+              : "The accepted quote cannot be started in its current state. Refresh and review it again.",
         },
       },
       { status: 409 },

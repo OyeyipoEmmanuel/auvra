@@ -21,7 +21,7 @@ export default async function TreasuryPage() {
     },
   });
   const live = payments.filter((payment) => payment.provider === "BACHS");
-  const demo = payments.filter((payment) =>
+  const noCharge = payments.filter((payment) =>
     ["DEMO_SANDBOX", "BACHS_SANDBOX"].includes(payment.provider),
   );
   const collected = live.filter((payment) =>
@@ -71,7 +71,7 @@ export default async function TreasuryPage() {
         <TreasuryMetric
           label="Verified payments"
           value={collectedByCurrency.join(" · ") || "—"}
-          detail="Excludes sandbox entries"
+          detail="Confirmed provider charges only"
         />
         <TreasuryMetric
           label="Reserved funds"
@@ -117,20 +117,14 @@ export default async function TreasuryPage() {
               <span>Amount</span>
               <span className="text-right">Date</span>
             </div>
-            {payments.length ? (
-              payments.map((payment) => (
+            {live.length ? (
+              live.map((payment) => (
                 <div
                   key={payment.id}
                   className="grid gap-2 border-b border-[var(--ws-border)] px-4 py-3.5 last:border-0 sm:grid-cols-[minmax(0,1fr)_110px_130px_100px] sm:items-center sm:gap-3"
                 >
                   <div>
-                    <p className="text-[14px] font-medium text-[#e4e4e7]">
-                      {payment.provider === "DEMO_SANDBOX"
-                        ? "Demo funding"
-                        : payment.provider === "BACHS_SANDBOX"
-                          ? "Bachs sandbox"
-                          : payment.provider}
-                    </p>
+                    <p className="text-[14px] font-medium text-[#e4e4e7]">{payment.provider}</p>
                     <p className="mt-1 text-[13px] text-[#777780]">
                       {payment.id.slice(0, 8).toUpperCase()}
                     </p>
@@ -156,17 +150,17 @@ export default async function TreasuryPage() {
         </section>
         <aside className="space-y-5">
           <div className="rounded-lg border border-[var(--ws-border)] bg-[var(--ws-surface)] p-5">
-            <p className="text-[14px] font-semibold text-[#e4e4e7]">Development sandbox</p>
+            <p className="text-[14px] font-semibold text-[#e4e4e7]">Project records</p>
             <p className="mt-2 text-[14px] leading-5 text-[#92929b]">
-              {demo.length} simulated payment{demo.length === 1 ? "" : "s"} recorded. Demo USDC is
-              not a transferable token or realized revenue.
+              {noCharge.length} no-charge project record{noCharge.length === 1 ? "" : "s"} excluded
+              from collected payments and revenue.
             </p>
           </div>
           <div className="border-t border-[var(--ws-border)] pt-5">
             <p className="text-[14px] font-semibold text-[#e4e4e7]">Available funds and profit</p>
             <p className="mt-2 text-[14px] leading-5 text-[#92929b]">
               These require verified treasury balances and settled ledger reconciliation. Auvra does
-              not yet calculate them from demo allocations.
+              not yet calculate them from project allocations.
             </p>
           </div>
         </aside>

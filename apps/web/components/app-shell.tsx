@@ -31,10 +31,6 @@ export function AppShell({
           <AppSidebarNav />
         </div>
         <div className="mt-auto border-t border-[var(--ws-border)] px-3 py-3">
-          <div className="mb-3 flex items-center gap-2 px-3 text-[13px] text-[#85858e]">
-            <span className="size-1.5 rounded-full bg-amber-400" />
-            Development sandbox
-          </div>
           <Link
             href="/app/settings"
             className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-[#1c1c1e]"

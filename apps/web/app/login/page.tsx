@@ -100,9 +100,6 @@ export default function Login() {
               Auvra uses a secure server session. Signing in does not connect a wallet or authorize
               supplier spending.
             </div>
-            <p className="mt-14 text-[13px] text-[#696971]">
-              Development sandbox · Live purchasing disabled
-            </p>
           </div>
         </section>
       </div>

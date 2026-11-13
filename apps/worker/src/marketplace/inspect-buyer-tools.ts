@@ -28,13 +28,28 @@ try {
     throw new Error("Buyer connection is missing or bound to a different account.");
   }
   await client.connect(
-    new StreamableHTTPClientTransport(new URL("https://market.near.ai/mcp"), {
-      authProvider: provider,
-      requestInit: { signal: AbortSignal.timeout(15_000) },
-    }),
+    new StreamableHTTPClientTransport(
+      new URL(
+        process.argv.includes("--pro")
+          ? "https://market.near.ai/mcp/pro"
+          : "https://market.near.ai/mcp",
+      ),
+      {
+        authProvider: provider,
+        requestInit: { signal: AbortSignal.timeout(15_000) },
+      },
+    ),
   );
   const { tools } = await client.listTools();
-  if (process.argv.includes("--metadata")) {
+  if (process.argv.includes("--pro") && process.argv.includes("--metadata")) {
+    console.log(
+      JSON.stringify({
+        endpoint: "https://market.near.ai/mcp/pro",
+        directHireAvailable: tools.some((tool) => tool.name === "marketplace__create_job"),
+        paidCallMade: false,
+      }),
+    );
+  } else if (process.argv.includes("--metadata")) {
     const identity = await client.callTool({ name: "marketplace__whoami", arguments: {} });
     const body = identity.structuredContent as Record<string, unknown> | undefined;
     console.log(

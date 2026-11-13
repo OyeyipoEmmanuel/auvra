@@ -15,6 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "INVALID_ORIGIN" }, { status: 403 });
   const body = (await request.json().catch(() => null)) as {
     confirmed?: unknown;
+    consentToShare?: unknown;
     expectedAmountMinor?: unknown;
   } | null;
   const { id } = await params;
@@ -35,7 +36,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
   });
   if (!job) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  if (body?.confirmed !== true || body.expectedAmountMinor !== job.authorizedMinor.toString()) {
+  if (
+    body?.confirmed !== true ||
+    body.consentToShare !== true ||
+    body.expectedAmountMinor !== job.authorizedMinor.toString()
+  ) {
     return NextResponse.json({ error: "EXACT_PRICE_CONFIRMATION_REQUIRED" }, { status: 409 });
   }
   const quote = job.project.request.quotes[0];
@@ -61,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     !payment ||
     job.state !== "PROPOSED" ||
     job.task.status !== "READY" ||
-    !["PLANNING", "PROCUREMENT"].includes(job.project.state) ||
+    !["PLANNING", "PROCUREMENT", "RUNNING"].includes(job.project.state) ||
     !observedAt ||
     Number.isNaN(observedAt.getTime()) ||
     Date.now() - observedAt.getTime() > 15 * 60_000 ||
@@ -69,6 +74,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     job.authorizedMinor <= BigInt(0)
   ) {
     return NextResponse.json({ error: "PROPOSAL_NOT_READY" }, { status: 409 });
+  }
+  const submitted = await prisma.auditEvent.findFirst({
+    where: { requestId: job.project.requestId, eventType: "REQUEST_SUBMITTED" },
+    orderBy: { occurredAt: "desc" },
+  });
+  const consent = submitted?.metadataJson;
+  if (
+    !consent ||
+    typeof consent !== "object" ||
+    Array.isArray(consent) ||
+    consent.externalAgentConsent !== true
+  ) {
+    return NextResponse.json({ error: "CUSTOMER_SHARING_CONSENT_MISSING" }, { status: 409 });
   }
   const policies = await prisma.policyVersion.findMany({
     where: { policyKey: "LIVE_PROCUREMENT", active: true },
@@ -97,7 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return null;
     const approval = await tx.approval.create({
       data: {
-        approvalType: "FIRST_LIVE_HIRE",
+        approvalType: "SUPPLIER_HIRE",
         state: "APPROVED",
         decidedById: user.id,
         projectId: job.projectId,
@@ -122,6 +140,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           amountMinor: job.authorizedMinor.toString(),
           currency: job.currency,
           policyVersionId: policy.id,
+          consentToShare: true,
         },
       },
     });
@@ -131,7 +150,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         aggregateId: approval.id,
         eventType: "approval.granted",
         idempotencyKey: `approval:${approval.id}:granted`,
-        payloadJson: { projectId: job.projectId, supplierJobId: job.id },
+        payloadJson: { projectId: job.projectId, supplierJobId: job.id, consentToShare: true },
       },
     });
     return approval.id;

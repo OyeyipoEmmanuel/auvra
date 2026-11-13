@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
 import { StateDot, formatMoney } from "@/components/workspace-ui";
@@ -26,6 +26,9 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
     },
   });
   if (!payment) notFound();
+  if (payment.provider === "DEMO_SANDBOX" && payment.project) {
+    redirect(`/app/projects/${payment.project.id}/receipt`);
+  }
   const sandbox = payment.provider !== "BACHS";
   const proof = payment.project?.receipts.find((item) => item.state === "CONFIRMED");
   const explorer =
@@ -49,7 +52,7 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
       </Link>
       <div className="mt-8 rounded-xl border border-[var(--ws-border)] bg-[var(--ws-surface)] p-6 sm:p-8">
         <p className="text-[13px] font-medium uppercase tracking-[.14em] text-violet-300">
-          {sandbox ? "Simulated payment record" : "Customer payment record"}
+          {sandbox ? "Test checkout record" : "Customer payment record"}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
           {formatMoney(payment.amountMinor, payment.currency)}

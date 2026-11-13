@@ -100,7 +100,7 @@ export function LiveCheckoutPanel({
           <p className="mt-2 text-[15px] leading-6 text-zinc-400">
             {hasCheckout
               ? `A Bachs checkout for ${amount} already exists. Do not pay again. Auvra will create your project only after checking the provider's payment record.`
-              : `Continue to Bachs to review and pay ${amount}. ${mode === "SANDBOX" ? "This is a simulated sandbox payment; no real money moves and live agent hiring stays blocked." : "Auvra starts the project only after the payment is verified. Supplier hiring requires a separate funding and approval check."}`}
+              : `Continue to Bachs to review ${amount}. ${mode === "SANDBOX" ? "This is a test checkout; no payment is collected." : "Auvra starts the project only after the payment is verified. Supplier hiring requires a separate funding and approval check."}`}
           </p>
           {!hasCheckout && !returnAvailable && (
             <p className="mt-3 text-[14px] leading-6 text-amber-200">
@@ -148,9 +148,7 @@ export function LiveCheckoutPanel({
         ) : (
           <ArrowUpRight className="size-4" />
         )}
-        {hasCheckout
-          ? "Check payment status"
-          : `Continue to Bachs ${mode === "SANDBOX" ? "sandbox" : "checkout"}`}
+        {hasCheckout ? "Check payment status" : "Continue to checkout"}
       </Button>
     </Card>
   );

@@ -107,7 +107,10 @@ export async function POST(request: Request) {
           actorId: user.id,
           eventType: draft ? "REQUEST_DRAFT_CREATED" : "REQUEST_SUBMITTED",
           requestId: created.id,
-          metadataJson: { runtimeMode: process.env.AUVRA_RUNTIME_MODE ?? "DEMO_SANDBOX" },
+          metadataJson: {
+            runtimeMode: process.env.AUVRA_RUNTIME_MODE ?? "DEMO_SANDBOX",
+            externalAgentConsent: !draft,
+          },
         },
       });
       await tx.outboxEvent.create({

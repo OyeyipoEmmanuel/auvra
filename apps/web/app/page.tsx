@@ -50,10 +50,6 @@ export default function Home() {
           >
             <MarketingProductDemo />
           </div>
-          <p className="auvra-product-note">
-            Illustrative product preview. Live supplier purchases and settlement are not enabled in
-            the current demo.
-          </p>
         </div>
       </section>
 
@@ -299,7 +295,7 @@ export default function Home() {
         </div>
         <div className="auvra-shell auvra-footer-bottom">
           <span>© 2026 Auvra</span>
-          <span>Development sandbox · no live supplier spend</span>
+          <span>From intent to outcome.</span>
         </div>
       </footer>
     </main>

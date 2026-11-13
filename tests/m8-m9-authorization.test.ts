@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 const { POST: approve } = await import("../apps/web/app/api/ops/supplier-jobs/[id]/approve/route");
+const { POST: createPolicy } = await import("../apps/web/app/api/ops/policies/create/route");
 const { POST: accept } = await import("../apps/web/app/api/projects/[id]/accept-delivery/route");
 const jobId = "11111111-1111-4111-8111-111111111111";
 const projectId = "22222222-2222-4222-8222-222222222222";
@@ -64,6 +65,36 @@ describe("M8 operator and M9 customer command boundaries", () => {
       ).status,
     ).toBe(403);
     expect(supplierFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit brief-sharing consent before an operator approval", async () => {
+    const previousMode = process.env.AUVRA_RUNTIME_MODE;
+    process.env.AUVRA_RUNTIME_MODE = "LIVE_MARKET";
+    try {
+      getApiUser.mockResolvedValue({ id: projectId, role: "OPERATOR" });
+      supplierFindUnique.mockResolvedValue({ id: jobId, authorizedMinor: 1500n });
+      const response = await approve(
+        post(`/api/ops/supplier-jobs/${jobId}/approve`, {
+          confirmed: true,
+          expectedAmountMinor: "1500",
+        }),
+        { params: Promise.resolve({ id: jobId }) },
+      );
+      expect(response.status).toBe(409);
+      expect(transaction).not.toHaveBeenCalled();
+    } finally {
+      if (previousMode === undefined) delete process.env.AUVRA_RUNTIME_MODE;
+      else process.env.AUVRA_RUNTIME_MODE = previousMode;
+    }
+  });
+
+  it("does not let a customer create live procurement policy", async () => {
+    getApiUser.mockResolvedValue({ id: projectId, role: "CUSTOMER" });
+    const response = await createPolicy(
+      post("/api/ops/policies/create", { confirmed: true, serviceIds: ["service-1"] }),
+    );
+    expect(response.status).toBe(403);
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it("requires same-origin, explicit customer delivery acceptance", async () => {

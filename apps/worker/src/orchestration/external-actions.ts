@@ -61,6 +61,32 @@ export async function claimExternalAction(
   return updated.count === 1 ? "CLAIMED" : "NOT_CLAIMED";
 }
 
+/** A paid hire may be retried only with the same provider request ID and payload. */
+export async function claimPaidHireReplay(
+  db: PrismaClient,
+  idempotencyKey: string,
+  workerId: string,
+  now = new Date(),
+) {
+  const updated = await db.externalAction.updateMany({
+    where: {
+      idempotencyKey,
+      provider: "NEAR_AGENT_MARKET",
+      actionType: "CREATE_PAID_JOB",
+      state: "UNKNOWN",
+      createdAt: { gte: new Date(now.getTime() - 10 * 60_000) },
+      attemptCount: { lt: 10 },
+    },
+    data: {
+      state: "IN_FLIGHT",
+      leaseOwner: workerId,
+      leaseExpiresAt: new Date(now.getTime() + 30_000),
+      attemptCount: { increment: 1 },
+    },
+  });
+  return updated.count === 1 ? "CLAIMED" : "NOT_CLAIMED";
+}
+
 /** An expired network call becomes UNKNOWN, never automatically retryable. */
 export async function markExternalActionTimedOut(
   db: PrismaClient,

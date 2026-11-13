@@ -4,6 +4,8 @@ Private records are UTF-8 JSON with object keys sorted lexicographically at ever
 
 The project reference hash is SHA-256 of a private stable project reference. `canonicalRecordHash` is SHA-256 of the complete private canonical record. A project record includes a `quoteHash` over the accepted version, scope, assumptions, exclusions, terms, asset, price, and supplier cap. A settlement record includes hashes of the reconciled ledger entries and provider references. The contract validates schema version, hash syntax, authorized writers, uniqueness, and exact replay; it does not trust or inspect the private record.
 
+No-charge project records also include `fundingMode: "NO_CHARGE"` in the private canonical record. Their receipt can prove the approved project and quote hash on NEAR testnet; it cannot be interpreted as a customer payment or supplier settlement receipt. The receipt view displays the quoted value separately from the zero amount charged.
+
 Golden vector:
 
 ```json

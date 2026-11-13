@@ -208,6 +208,9 @@ export async function reconcileAndSubmitAnchor(
     });
     return { kind: "CONFIRMED" as const };
   }
+  if (anchor.state === "CONFIRMED") {
+    return { kind: "CONFLICT" as const };
+  }
   if (
     anchor.transactionHash ||
     anchor.state === "SUBMITTED" ||

@@ -134,10 +134,6 @@ export function MobileWorkspaceNav() {
           Workspace
         </p>
         <AppSidebarNav />
-        <div className="mx-3 mt-8 border-t border-[var(--ws-border)] pt-5 text-[13px] text-[#85858e]">
-          <span className="mr-2 inline-block size-1.5 rounded-full bg-amber-400" />
-          Development sandbox
-        </div>
       </div>
     </>
   );

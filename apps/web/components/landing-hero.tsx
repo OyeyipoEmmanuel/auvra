@@ -44,13 +44,6 @@ export function LandingHero() {
       />
       <div className="auvra-shell auvra-hero-inner">
         <div className="auvra-hero-copy">
-          <p className="auvra-kicker auvra-hero-enter">
-            <span
-              className="auvra-kicker-mark"
-              aria-hidden="true"
-            />
-            A new way to get work done
-          </p>
           <h1
             id="hero-title"
             className="auvra-hero-title auvra-hero-enter"

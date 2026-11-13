@@ -53,6 +53,16 @@ export async function reserveSupplierSpend(
       });
       if (replay) return { kind: "ALREADY_RESERVED" as const, reservationId: replay.id };
 
+      const unresolvedHire = await tx.externalAction.findFirst({
+        where: {
+          provider: "NEAR_AGENT_MARKET",
+          actionType: "CREATE_PAID_JOB",
+          state: { in: ["IN_FLIGHT", "UNKNOWN", "REVIEW_REQUIRED"] },
+        },
+        select: { id: true },
+      });
+      if (unresolvedHire) return { kind: "UNRECONCILED_PAID_HIRE" as const };
+
       const project = await tx.project.findUnique({
         where: { id: input.projectId },
         include: {
@@ -100,11 +110,19 @@ export async function reserveSupplierSpend(
       const [projectReservations, dailyReservations, buyerReservations, completedHires, approval] =
         await Promise.all([
           tx.spendReservation.aggregate({
-            where: { projectId: input.projectId, state: "RESERVED", currency: input.currency },
+            where: {
+              projectId: input.projectId,
+              state: { in: ["RESERVED", "COMMITTED"] },
+              currency: input.currency,
+            },
             _sum: { amountMinor: true },
           }),
           tx.spendReservation.aggregate({
-            where: { state: "RESERVED", currency: input.currency, createdAt: { gte: dayStart } },
+            where: {
+              state: { in: ["RESERVED", "COMMITTED"] },
+              currency: input.currency,
+              createdAt: { gte: dayStart },
+            },
             _sum: { amountMinor: true },
           }),
           tx.spendReservation.aggregate({

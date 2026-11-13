@@ -83,7 +83,7 @@ export function MarketingProductDemo() {
           </div>
           <span className="text-[12px] font-medium text-[#8d8d96]">Auvra / Workspace</span>
           <span className="rounded border border-[#303035] px-2 py-1 text-[9px] text-[#8d8d96]">
-            Interactive preview
+            Product tour
           </span>
         </div>
         <div className="grid md:grid-cols-[178px_minmax(0,1fr)]">

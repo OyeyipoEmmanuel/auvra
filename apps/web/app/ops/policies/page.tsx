@@ -1,17 +1,25 @@
 import Link from "next/link";
 
 import { OperatorPolicyToggle } from "@/components/operator-policy-toggle";
+import { OperatorPolicyCreate } from "@/components/operator-policy-create";
 import { requirePageRole } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 
 export default async function OperatorPoliciesPage() {
   const user = await requirePageRole(["OPERATOR", "ADMIN"]);
-  const [policies, approvals] = await Promise.all([
+  const [policies, approvals, proposals] = await Promise.all([
     prisma.policyVersion.findMany({
       orderBy: [{ policyKey: "asc" }, { version: "desc" }],
       take: 50,
     }),
     prisma.approval.findMany({ orderBy: { createdAt: "desc" }, take: 30 }),
+    prisma.supplierJob.findMany({
+      where: { provider: "NEAR_AGENT_MARKET", state: "PROPOSED" },
+      orderBy: { createdAt: "desc" },
+      distinct: ["externalServiceId"],
+      take: 50,
+      select: { externalServiceId: true, listingSnapshotJson: true },
+    }),
   ]);
   const active = policies.find(
     (policy) => policy.policyKey === "LIVE_PROCUREMENT" && policy.active,
@@ -33,6 +41,21 @@ export default async function OperatorPoliciesPage() {
         Versioned controls recorded in PostgreSQL. Pause changes are audited; supplier hiring still
         has separate gates.
       </p>
+      {!active && user.role === "ADMIN" && process.env.AUVRA_RUNTIME_MODE === "LIVE_MARKET" && (
+        <OperatorPolicyCreate
+          services={proposals.map((proposal) => {
+            const snapshot = proposal.listingSnapshotJson;
+            const name =
+              snapshot &&
+              typeof snapshot === "object" &&
+              !Array.isArray(snapshot) &&
+              typeof snapshot.name === "string"
+                ? snapshot.name
+                : "Marketplace service";
+            return { id: proposal.externalServiceId, name };
+          })}
+        />
+      )}
       {active && typeof activeRules?.paused === "boolean" && (
         <OperatorPolicyToggle
           version={active.version}

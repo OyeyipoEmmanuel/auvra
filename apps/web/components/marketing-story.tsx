@@ -130,8 +130,7 @@ export function MarketingStory() {
               ))}
             </div>
             <p className="mt-5 text-[13px] leading-5 text-[#7e7e88]">
-              Illustrative workflow. Live supplier hiring and settlement are not enabled in the
-              current demo.
+              Every step keeps the customer informed, from scope to handoff.
             </p>
           </div>
         </div>

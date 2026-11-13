@@ -82,7 +82,7 @@ export default async function CheckoutReturnPage({ params, searchParams }: Conte
         {pending && <PaymentReturnWait quoteId={quoteId} />}
         {payment?.provider === "BACHS_SANDBOX" && (
           <p className="mt-5 rounded-xl border border-amber-300/15 bg-amber-300/[.05] p-4 text-[14px] leading-6 text-amber-100">
-            Sandbox payment: no real money moved, and live agent hiring remains disabled.
+            Test checkout completed. No payment was collected.
           </p>
         )}
         <div className="mt-7 flex flex-wrap gap-4 text-[15px]">

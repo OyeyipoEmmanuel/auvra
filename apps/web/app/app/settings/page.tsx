@@ -51,7 +51,7 @@ export default async function SettingsPage() {
           />
           <SettingRow
             label="Marketplace purchasing"
-            value="Disabled in development sandbox"
+            value="Requires verified funding and approval"
           />
         </div>
       </section>

@@ -188,7 +188,7 @@ export default async function CustomerHome() {
                       {request.state === "QUOTED"
                         ? "Review quote"
                         : request.state === "APPROVED"
-                          ? "Complete demo funding"
+                          ? "Start project"
                           : "Answer clarification"}
                     </p>
                   </Link>
@@ -239,12 +239,6 @@ export default async function CustomerHome() {
               )}
             </div>
           </section>
-          <div className="border-t border-[var(--ws-border)] pt-5 text-[14px] leading-5 text-[#85858e]">
-            <span className="font-medium text-[#c5c5ca]">Development sandbox</span>
-            <p className="mt-1">
-              Funding is simulated. Supplier hiring and live settlement are not enabled.
-            </p>
-          </div>
         </aside>
       </div>
     </main>

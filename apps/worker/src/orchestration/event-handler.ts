@@ -2,6 +2,13 @@ import { createHash } from "node:crypto";
 
 import type { PrismaClient } from "@prisma/client";
 
+import { ingestBuyerResult } from "../marketplace/ingest-buyer-result.js";
+import { planBuyerJob } from "../marketplace/plan-buyer-job.js";
+import {
+  BuyerActionBlockedError,
+  hireBuyerJob,
+  prepareBuyerDraft,
+} from "../marketplace/prepare-buyer-draft.js";
 import { queueForEvent, type OutboxJob, type QueueName } from "./queues.js";
 import { scheduleReadyTasks } from "./task-scheduler.js";
 
@@ -66,7 +73,23 @@ async function observeCommittedEvent(
   return { kind: "OBSERVED" as const };
 }
 
-/** No supplier hire, payment, acceptance, or external message is performed in M7. */
+/** A queue redelivery after successful observation must not re-run provider work. */
+async function observedReplay(
+  db: PrismaClient,
+  event: { id: string; eventType: string; aggregateId: string },
+) {
+  const existing = await db.idempotencyRecord.findUnique({
+    where: { scope_idempotencyKey: { scope: "M7_COMMITTED_EVENT", idempotencyKey: event.id } },
+  });
+  if (!existing) return null;
+  const hash = createHash("sha256").update(`${event.eventType}:${event.aggregateId}`).digest("hex");
+  if (existing.requestHash !== hash || !existing.completedAt) {
+    throw new Error("Conflicting or incomplete outbox observation.");
+  }
+  return { kind: "REPLAY" as const };
+}
+
+/** Routes approved work through the configured marketplace buyer action. */
 export async function handleOutboxJob(
   db: PrismaClient,
   queue: QueueName,
@@ -101,10 +124,95 @@ export async function handleOutboxJob(
 
   if (event.eventType === "project.task_ready") {
     const payload = payloadRecord(event.payloadJson);
-    if (event.aggregateType !== "ProjectTask" || payload?.taskId !== event.aggregateId) {
+    if (
+      event.aggregateType !== "ProjectTask" ||
+      payload?.taskId !== event.aggregateId ||
+      typeof payload.projectId !== "string"
+    ) {
       throw new Error("Invalid task-ready event.");
     }
-    // M8 will scan READY tasks from Postgres; no paid action is dispatched here.
+    const replay = await observedReplay(db, event);
+    if (replay) return replay;
+    if (
+      process.env.AUVRA_RUNTIME_MODE === "LIVE_MARKET" &&
+      process.env.AUVRA_M8_AUTOMATION_ENABLED === "true"
+    ) {
+      const task = await db.projectTask.findUnique({ where: { id: event.aggregateId } });
+      if (!task || task.projectId !== payload.projectId)
+        throw new Error("Task-ready event has no matching task.");
+      if (task.status !== "READY") {
+        const existingHire = await db.supplierJob.findFirst({
+          where: {
+            taskId: task.id,
+            state: { in: ["HIRED", "ACTIVE", "SUBMITTED", "QA_PASSED", "ACCEPTED"] },
+          },
+        });
+        if (!existingHire) throw new Error("Task changed without a confirmed supplier hire.");
+        return observeCommittedEvent(db, event);
+      }
+      await planBuyerJob(db, task.projectId, task.taskKey);
+      if (process.env.AUVRA_M8_DIRECT_HIRE_ENABLED === "true") {
+        try {
+          await hireBuyerJob(db, task.projectId, task.taskKey, undefined, true);
+        } catch (error) {
+          // Policy denial leaves a proposal for operator review. Provider failures retry the event.
+          if (!(error instanceof BuyerActionBlockedError)) throw error;
+        }
+      }
+    }
+    return observeCommittedEvent(db, event);
+  }
+
+  if (event.eventType === "approval.granted") {
+    const payload = payloadRecord(event.payloadJson);
+    if (
+      event.aggregateType !== "Approval" ||
+      typeof payload?.projectId !== "string" ||
+      typeof payload.supplierJobId !== "string" ||
+      payload.consentToShare !== true
+    )
+      throw new Error("Invalid supplier approval event.");
+    const replay = await observedReplay(db, event);
+    if (replay) return replay;
+    if (
+      process.env.AUVRA_RUNTIME_MODE === "LIVE_MARKET" &&
+      process.env.AUVRA_M8_AUTOMATION_ENABLED === "true"
+    ) {
+      const job = await db.supplierJob.findUnique({
+        where: { id: payload.supplierJobId },
+        include: { task: true },
+      });
+      if (!job || job.projectId !== payload.projectId)
+        throw new Error("Approval has no matching supplier job.");
+      const buyerAction =
+        process.env.AUVRA_M8_DIRECT_HIRE_ENABLED === "true" ? hireBuyerJob : prepareBuyerDraft;
+      await buyerAction(
+        db,
+        job.projectId,
+        job.task.taskKey,
+        event.aggregateId,
+        payload.consentToShare === true,
+      );
+    }
+    return observeCommittedEvent(db, event);
+  }
+
+  if (event.eventType === "supplier.job_submitted") {
+    const payload = payloadRecord(event.payloadJson);
+    if (event.aggregateType !== "SupplierJob" || typeof payload?.projectId !== "string") {
+      throw new Error("Invalid supplier submission event.");
+    }
+    const replay = await observedReplay(db, event);
+    if (replay) return replay;
+    if (
+      process.env.AUVRA_RUNTIME_MODE === "LIVE_MARKET" &&
+      process.env.AUVRA_M8_AUTOMATION_ENABLED === "true"
+    ) {
+      const job = await db.supplierJob.findUnique({ where: { id: event.aggregateId } });
+      if (!job || job.projectId !== payload.projectId)
+        throw new Error("Submission has no matching supplier job.");
+      await ingestBuyerResult(db, job.id);
+    }
     return observeCommittedEvent(db, event);
   }
 

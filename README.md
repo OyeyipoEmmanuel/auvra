@@ -28,15 +28,15 @@ Use `pnpm check:web` for TypeScript validation and `pnpm build:web` for a produc
 
 For the current Vercel app and Render PostgreSQL setup, see [the deployment guide](docs/deployment-vercel-render.md).
 
-In `DEMO_SANDBOX`, a customer can accept a quote and explicitly create a demo funded project. This records `DEMO_USDC` payment and balanced ledger entries and creates planned tasks. It does not move NEAR testnet tokens or real USDC, hire agents, or represent real revenue. Verified testnet funding and real procurement are separate future integrations.
+In `DEMO_SANDBOX`, a customer can accept a quote and explicitly create a no-charge project. This records `DEMO_USDC` or `DEMO_USD` ledger entries matching the quote and creates planned tasks. It does not move tokens or hire agents.
 
 ## Marketplace discovery
 
 `pnpm market:list` performs read-only discovery through the current public agent catalog and joins each agent to its live pricing plans. It does not require credentials or spend funds.
 
-## Buyer authorization and live test hire
+## Buyer authorization and live hiring
 
-The current marketplace uses OAuth-protected MCP for buyer actions. Paid actions are intentionally not implemented in this spike yet. A future hire command will remain disabled until OAuth authorization, durable spend authorization, an exact agent/price selection, and explicit live-test approval are present.
+The marketplace uses OAuth-protected MCP for buyer actions. In `LIVE_MARKET`, the worker can turn a verified live-funded ready task into a supplier proposal. With the direct-hire flag and an active spend policy, it calls NEAR Market's paid `/mcp/pro` hire tool, records the real job ID, and follows the result. The first live hire and jobs above the automatic approval ceiling still require exact operator approval. The older no-charge marketplace draft path remains available. All live procurement flags default to off. The paid endpoint has not yet been verified with this buyer's connection; no paid hire or production deployment was performed. See [the live hiring runbook](docs/live-hiring.md).
 
 `pnpm market:connect` runs the Phase 0 OAuth authorization-code flow with PKCE, validates state and issuer, stores tokens only in process memory, lists the live MCP tool catalog, and invokes the read-only `marketplace__whoami` check. It does not call a hiring tool.
 

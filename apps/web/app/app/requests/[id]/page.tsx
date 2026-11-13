@@ -113,10 +113,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             {pendingBachsPayment
               ? "A Bachs checkout was started. Auvra is waiting for provider verification before creating the project; do not pay again."
               : request.project && quote?.payments[0]?.provider === "BACHS_SANDBOX"
-                ? "Your sandbox payment was verified and the project is ready. No real tokens moved or live supplier jobs started."
+                ? "Your project workspace is ready. No charge was made or supplier hired."
                 : request.project && quote?.payments[0]?.provider === "BACHS"
                   ? "Your payment was verified and the project is ready. Supplier hiring remains a separate gated step."
-                  : statusDescription(request.state)}
+                  : statusDescription(
+                      request.state,
+                      process.env.AUVRA_RUNTIME_MODE === "DEMO_SANDBOX",
+                    )}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -183,8 +186,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         />
       )}
       {quote?.state === "ACCEPTED" &&
-        quote.currency === "USDC" &&
-        process.env.AUVRA_RUNTIME_MODE === "DEMO_SANDBOX" && (
+        ["USD", "USDC"].includes(quote.currency) &&
+        process.env.AUVRA_RUNTIME_MODE === "DEMO_SANDBOX" &&
+        !pendingBachsPayment && (
           <SandboxFundingPanel
             quoteId={quote.id}
             amount={formatBudget(quote.customerTotalMinor, quote.currency)}
@@ -194,15 +198,33 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       {quote?.state === "ACCEPTED" &&
         quote.currency === "USD" &&
         !request.project &&
-        bachsPaymentMode() && (
+        bachsPaymentMode() &&
+        (process.env.AUVRA_RUNTIME_MODE !== "DEMO_SANDBOX" || pendingBachsPayment) &&
+        (bachsPaymentMode() === "SANDBOX" ? (
+          <details
+            className="mt-5 text-[14px] text-zinc-400"
+            open={pendingBachsPayment || undefined}
+          >
+            <summary className="cursor-pointer text-violet-200 hover:text-white">
+              {pendingBachsPayment ? "Check payment status" : "Use card checkout instead"}
+            </summary>
+            <LiveCheckoutPanel
+              quoteId={quote.id}
+              amount={formatBudget(quote.customerTotalMinor, quote.currency)}
+              mode="SANDBOX"
+              returnAvailable={bachsReturnUrls(quote.id, request.id) !== null}
+              paymentState={quote.payments[0]?.state ?? null}
+            />
+          </details>
+        ) : (
           <LiveCheckoutPanel
             quoteId={quote.id}
             amount={formatBudget(quote.customerTotalMinor, quote.currency)}
-            mode={bachsPaymentMode()!}
+            mode="LIVE"
             returnAvailable={bachsReturnUrls(quote.id, request.id) !== null}
             paymentState={quote.payments[0]?.state ?? null}
           />
-        )}
+        ))}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-6">
@@ -292,11 +314,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           <Card className="border-emerald-400/10 bg-emerald-400/[.025] p-6">
             <ShieldCheck className="size-5 text-emerald-300" />
             <p className="mt-4 text-[15px] font-medium text-emerald-100">
-              {request.project ? "Demo project active" : "Supplier spending off"}
+              {request.project ? "Project workspace ready" : "Supplier spending off"}
             </p>
             <p className="mt-2 text-[14px] leading-5 text-zinc-500">
               {request.project
-                ? "Only simulated funds were recorded. Supplier hiring remains disabled."
+                ? "The approved plan and project receipt are available in your workspace."
                 : "Auvra will not hire agents until a separate verified funding and procurement workflow is enabled."}
             </p>
           </Card>
@@ -347,7 +369,7 @@ function formatBudget(minor: bigint, currency: string) {
   return `${currency} ${value.slice(0, -2)}.${value.slice(-2)}`;
 }
 
-function statusDescription(state: string) {
+function statusDescription(state: string, previewMode: boolean) {
   if (state === "SUBMITTED" || state === "ANALYZING")
     return "Auvra has securely recorded the original brief and is beginning Manager analysis. Nothing has been purchased or spent.";
   if (state === "NEEDS_CLARIFICATION")
@@ -357,9 +379,11 @@ function statusDescription(state: string) {
   if (state === "QUOTED")
     return "A live-catalog supplier match and versioned quote are ready for review. Nothing has been funded, hired, or spent.";
   if (state === "APPROVED")
-    return "You approved the scope and quote. Funding remains a separate required step, and no supplier has been hired.";
+    return previewMode
+      ? "You approved the scope and quote. You can now explore the project without a charge or supplier hire."
+      : "You approved the scope and quote. Funding remains a separate required step, and no supplier has been hired.";
   if (state === "PROJECT_CREATED")
-    return "The sandbox project and its tasks are ready. No real tokens moved or supplier jobs started.";
+    return "The project workspace and task plan are ready. No charge was made or supplier hired.";
   if (state === "UNSUPPORTED")
     return "Manager analysis stopped this request before supplier discovery or payment.";
   return "Auvra has securely recorded the request. Nothing is purchased without an approved quote and verified funding.";
@@ -491,7 +515,7 @@ function QuoteCard({
             </dl>
             <p className="mt-6 border-t border-white/10 pt-4 text-[14px] leading-5 text-zinc-400">
               {quote.state === "ACCEPTED" && quote.acceptedAt
-                ? `Accepted ${quote.acceptedAt.toLocaleString()}. Checkout status is shown below.`
+                ? `Accepted ${quote.acceptedAt.toLocaleString()}. Project setup is shown below.`
                 : `Quote expires ${quote.expiresAt.toLocaleString()}.`}
             </p>
           </div>

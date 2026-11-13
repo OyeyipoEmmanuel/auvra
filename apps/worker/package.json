@@ -11,6 +11,7 @@
     "market:preflight": "tsx src/marketplace/live-hire-preflight.ts",
     "market:plan": "tsx src/marketplace/plan-buyer-job.ts",
     "market:prepare": "tsx src/marketplace/prepare-buyer-draft.ts",
+    "market:hire": "tsx src/marketplace/prepare-buyer-draft.ts --hire",
     "market:observe": "tsx src/marketplace/observe-buyer-job.ts",
     "market:result": "tsx src/marketplace/ingest-buyer-result.ts",
     "market:enroll": "tsx src/marketplace/enroll-buyer.ts",

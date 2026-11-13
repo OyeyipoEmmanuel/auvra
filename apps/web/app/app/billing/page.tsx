@@ -28,7 +28,7 @@ export default async function BillingPage() {
     <main className="mx-auto max-w-[1180px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
       <WorkspaceHeader
         title="Billing"
-        description="Your recorded project payments. Sandbox entries are not real charges or receipts."
+        description="Project receipts and recorded payments in one place."
       />
       <div className="mt-8 overflow-hidden rounded-xl border border-[var(--ws-border)]">
         {payments.length === 0 ? (
@@ -40,11 +40,16 @@ export default async function BillingPage() {
           />
         ) : (
           payments.map((payment) => {
-            const sandbox = payment.provider !== "BACHS";
+            const noCharge = payment.provider === "DEMO_SANDBOX";
+            const sandboxCheckout = payment.provider === "BACHS_SANDBOX";
             return (
               <Link
                 key={payment.id}
-                href={`/app/billing/${payment.id}`}
+                href={
+                  noCharge && payment.projectId
+                    ? `/app/projects/${payment.projectId}/receipt`
+                    : `/app/billing/${payment.id}`
+                }
                 className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--ws-border)] px-5 py-5 transition-colors last:border-0 hover:bg-[var(--ws-surface)]"
               >
                 <div className="flex min-w-0 items-center gap-4">
@@ -56,27 +61,33 @@ export default async function BillingPage() {
                   </div>
                   <div>
                     <p className="text-[15px] font-medium text-white">
-                      {sandbox ? "Sandbox payment" : "Bachs payment"}
+                      {noCharge ? "Project receipt" : "Payment record"}
                       <span className="ml-2 text-[13px] font-normal text-[#85858e]">
                         {payment.id.slice(0, 8).toUpperCase()}
                       </span>
                     </p>
                     <p className="mt-1 text-[13px] text-[#92929b]">
                       {payment.createdAt.toLocaleDateString()} ·{" "}
-                      {sandbox
-                        ? "Simulated only"
-                        : payment.reconciledAt
-                          ? "Reconciled"
-                          : payment.verifiedAt
-                            ? "Verified charge; settlement pending"
-                            : "Not verified"}
+                      {noCharge
+                        ? "No charge"
+                        : sandboxCheckout
+                          ? "Test checkout · no charge"
+                          : payment.reconciledAt
+                            ? "Reconciled"
+                            : payment.verifiedAt
+                              ? "Verified charge; settlement pending"
+                              : "Not verified"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <StateDot state={payment.state} />
+                  {noCharge ? (
+                    <span className="text-[14px] text-zinc-400">Project created</span>
+                  ) : (
+                    <StateDot state={payment.state} />
+                  )}
                   <span className="text-[15px] font-semibold text-white">
-                    {formatMoney(payment.amountMinor, payment.currency)}
+                    {noCharge ? "No charge" : formatMoney(payment.amountMinor, payment.currency)}
                   </span>
                   <ArrowUpRight
                     className="size-4 text-[#85858e]"

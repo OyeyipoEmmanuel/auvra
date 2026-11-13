@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Worker } from "bullmq";
 import { config } from "dotenv";
 
+import { observeBuyerJob } from "./marketplace/observe-buyer-job.js";
 import { handleOutboxJob } from "./orchestration/event-handler.js";
 import { parkExpiredExternalActions } from "./orchestration/external-actions.js";
 import {
@@ -14,6 +15,7 @@ import {
   type OutboxJob,
 } from "./orchestration/queues.js";
 import { publishOutboxBatch } from "./orchestration/outbox-publisher.js";
+import { processTestnetProjectReceipts } from "./receipts/process-testnet-project-receipts.js";
 
 if (!process.env.DATABASE_URL) config({ path: "../../.env.local", quiet: true });
 
@@ -41,6 +43,8 @@ async function main() {
 
   const workerId = randomUUID();
   let stopping = false;
+  let nextBuyerObservationAt = 0;
+  let nextReceiptCheckAt = 0;
   const poll = async () => {
     while (!stopping) {
       try {
@@ -48,6 +52,44 @@ async function main() {
         if (parked > 0) console.warn(`External actions awaiting reconciliation: ${parked}`);
         const result = await publishOutboxBatch(db, queues, workerId);
         if (result.claimed > 0) console.log(`Outbox publish: ${JSON.stringify(result)}`);
+        if (
+          process.env.AUVRA_TESTNET_RECEIPTS_ENABLED === "true" &&
+          Date.now() >= nextReceiptCheckAt
+        ) {
+          nextReceiptCheckAt = Date.now() + 30_000;
+          try {
+            await processTestnetProjectReceipts(db);
+          } catch {
+            console.error("NEAR testnet receipt processing failed; retrying later.");
+          }
+        }
+        if (
+          process.env.AUVRA_RUNTIME_MODE === "LIVE_MARKET" &&
+          process.env.AUVRA_M8_AUTOMATION_ENABLED === "true" &&
+          Date.now() >= nextBuyerObservationAt
+        ) {
+          nextBuyerObservationAt = Date.now() + 30_000;
+          const jobs = await db.supplierJob.findMany({
+            where: {
+              provider: "NEAR_AGENT_MARKET",
+              state: { in: ["CREATE_PENDING", "HIRED", "ACTIVE", "SUBMITTED"] },
+              OR: [
+                { lastObservedAt: null },
+                { lastObservedAt: { lte: new Date(Date.now() - 30_000) } },
+              ],
+            },
+            orderBy: { lastObservedAt: "asc" },
+            take: 10,
+            select: { id: true },
+          });
+          for (const job of jobs) {
+            try {
+              await observeBuyerJob(db, job.id);
+            } catch {
+              console.error(`Marketplace job observation failed: ${job.id}`);
+            }
+          }
+        }
       } catch {
         console.error("Outbox publisher unavailable; retrying.");
       }
@@ -65,7 +107,11 @@ async function main() {
   };
   process.once("SIGINT", () => void shutdown());
   process.once("SIGTERM", () => void shutdown());
-  console.log("M7 local worker started. Supplier hiring remains disabled.");
+  console.log(
+    process.env.AUVRA_M8_DIRECT_HIRE_ENABLED === "true"
+      ? "Auvra worker started with policy-gated direct marketplace hiring enabled."
+      : "Auvra worker started with direct marketplace hiring disabled.",
+  );
   polling = poll();
   await polling;
 }

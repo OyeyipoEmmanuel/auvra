@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, FileCheck2 } from "lucide-react";
 
 import { StateDot, WorkspaceEmpty, formatMoney } from "@/components/workspace-ui";
 import { CustomerDeliveryAccept } from "@/components/customer-delivery-accept";
+import { ProjectWalkthrough } from "@/components/project-walkthrough";
 import { requirePageUser } from "@/lib/authz";
+import { isManagerAnalysis } from "@/lib/manager-analysis";
 import { prisma } from "@/lib/prisma";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +15,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const project = await prisma.project.findFirst({
     where: { id, customerId: user.id },
     include: {
-      request: { select: { id: true, rawBrief: true } },
+      request: { select: { id: true, rawBrief: true, analysisJson: true } },
       tasks: {
         orderBy: { createdAt: "asc" },
         include: { supplierJobs: { select: { id: true, provider: true, state: true } } },
@@ -60,6 +62,26 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const demoPayment = project.payments.find((payment) =>
     ["DEMO_SANDBOX", "BACHS_SANDBOX"].includes(payment.provider),
   );
+  const noChargePayment = project.payments.find((payment) => payment.provider === "DEMO_SANDBOX");
+  const livePayment = project.payments.find(
+    (payment) =>
+      payment.provider === "BACHS" &&
+      ["VERIFIED", "ALLOCATED", "RECONCILED"].includes(payment.state),
+  );
+  const analysis = isManagerAnalysis(project.request.analysisJson)
+    ? project.request.analysisJson
+    : null;
+  const supplierNames = new Map(
+    analysis?.discovery?.selected.map((item) => [item.taskKey, item.serviceName]) ?? [],
+  );
+  const walkthroughTasks = project.tasks.map((task) => ({
+    key: task.taskKey,
+    title: task.title,
+    objective: task.objective,
+    supplierName: supplierNames.get(task.taskKey) ?? null,
+    deliverables: stringsFromJson(task.outputContractJson, "deliverables"),
+    acceptanceCriteria: stringsFromJson(task.validationRulesJson),
+  }));
   const completed = project.tasks.filter((task) => task.status === "COMPLETED").length;
   const hired = project.supplierJobs.filter((job) =>
     [
@@ -111,15 +133,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <ArrowUpRight className="size-3.5" />
         </Link>
       </div>
-      {demoPayment && (
-        <div className="mt-7 flex items-start gap-3 rounded-lg border border-[#4a3a25] bg-[#1b1712] p-4 text-[14px] leading-5 text-[#c6b7a2]">
-          <LockKeyhole className="mt-0.5 size-4 shrink-0" />
-          <p>
-            <span className="font-semibold text-[#f2dfbd]">Development sandbox.</span>{" "}
-            {formatMoney(demoPayment.amountMinor, demoPayment.currency)} was recorded as simulated
-            funding. No wallet transfer or marketplace hire occurred.
-          </p>
-        </div>
+      {noChargePayment && (
+        <Link
+          href={`/app/projects/${project.id}/receipt`}
+          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-violet-300/20 bg-violet-300/[.05] px-4 py-2.5 text-[14px] text-violet-200 transition-colors hover:border-violet-300/40 hover:bg-violet-300/[.09]"
+        >
+          <FileCheck2 className="size-4" /> View project receipt
+          <ArrowUpRight className="size-3.5" />
+        </Link>
       )}
       <section
         aria-label="Project summary"
@@ -142,6 +163,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           value={project.startedAt ? project.startedAt.toLocaleDateString() : "Not started"}
         />
       </section>
+      {demoPayment && walkthroughTasks.length > 0 && (
+        <ProjectWalkthrough
+          projectId={project.id}
+          brief={project.request.rawBrief}
+          tasks={walkthroughTasks}
+        />
+      )}
       <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_290px]">
         <div className="min-w-0 space-y-10">
           <section aria-labelledby="tasks-title">
@@ -171,9 +199,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                       </div>
                       <p className="mt-1 text-[14px] leading-5 text-[#92929b]">{task.objective}</p>
                       <p className="mt-3 text-[13px] text-[#777780]">
-                        {task.supplierJobs.length
-                          ? `${task.supplierJobs.length} agent job(s)`
-                          : "No agent hired"}{" "}
+                        {task.supplierJobs.some((job) =>
+                          ["HIRED", "ACTIVE", "SUBMITTED", "QA_PASSED", "ACCEPTED"].includes(
+                            job.state,
+                          ),
+                        )
+                          ? "Agent hired"
+                          : task.supplierJobs.length
+                            ? "Supplier proposal under review"
+                            : "No agent hired"}{" "}
                         · Observed supplier cost{" "}
                         {formatMoney(task.budgetMinor, task.budgetCurrency)}
                       </p>
@@ -313,7 +347,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <dl className="mt-4 space-y-3 text-[14px]">
               <div className="flex justify-between gap-3">
                 <dt className="text-[#85858e]">Funding</dt>
-                <dd>{demoPayment ? "Simulated" : "No payment record"}</dd>
+                <dd>
+                  {demoPayment ? "No charge" : livePayment ? "Verified" : "No payment record"}
+                </dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-[#85858e]">Supplier spending</dt>
@@ -328,13 +364,28 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             </Link>
           </section>
           <div className="border-t border-[var(--ws-border)] pt-5 text-[14px] leading-5 text-[#85858e]">
-            Execution is paused until supplier procurement, funding verification, and spend
-            approvals are available.
+            {demoPayment
+              ? "Your approved plan and project receipt are ready. Milestones update as work is recorded."
+              : hired > 0
+                ? "Auvra has hired a marketplace agent. Work and deliverables appear as the provider reports progress."
+                : livePayment
+                  ? "Auvra checks supplier availability, price, and spending policy after live funding. A proposal is not yet a hire."
+                  : "Execution is paused until supplier procurement, funding verification, and spend approvals are available."}
           </div>
         </aside>
       </div>
     </main>
   );
+}
+
+function stringsFromJson(value: unknown, field?: string): string[] {
+  const source =
+    field && value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)[field]
+      : value;
+  return Array.isArray(source)
+    ? source.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
