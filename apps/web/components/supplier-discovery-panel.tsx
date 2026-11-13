@@ -36,6 +36,10 @@ export function SupplierDiscoveryPanel({
     void discover();
   }, [state, discovery]);
 
+  useEffect(() => {
+    if (state !== "SCOPED" || discovery) setBusy(false);
+  }, [state, discovery]);
+
   async function discover() {
     setBusy(true);
     setError(null);
@@ -96,7 +100,7 @@ export function SupplierDiscoveryPanel({
 
   if (state !== "SCOPED" && state !== "QUOTED" && state !== "APPROVED") return null;
 
-  if (busy)
+  if (busy && state === "SCOPED" && !discovery)
     return (
       <Card className="mt-6 border-violet-400/15 p-6 sm:p-8">
         <div className="flex gap-4">

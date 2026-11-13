@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ManagerPanel } from "@/components/manager-panel";
+import { RequestAutoRefresh } from "@/components/request-auto-refresh";
 import { QuoteActions } from "@/components/quote-actions";
 import { SupplierDiscoveryPanel } from "@/components/supplier-discovery-panel";
 import { SandboxFundingPanel } from "@/components/sandbox-funding-panel";
@@ -90,6 +91,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
   return (
     <main className="mx-auto max-w-[1180px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+      <RequestAutoRefresh
+        active={
+          request.state === "SUBMITTED" ||
+          request.state === "ANALYZING" ||
+          (request.state === "SCOPED" && !analysis?.discovery)
+        }
+      />
       <Link
         href="/app/requests"
         className="inline-flex items-center gap-2 text-[14px] text-zinc-500 transition hover:text-white"

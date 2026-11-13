@@ -28,6 +28,10 @@ export function ManagerPanel({ requestId, state, analysis }: Props) {
     void analyze();
   }, [state]);
 
+  useEffect(() => {
+    if (state !== "SUBMITTED" && state !== "ANALYZING") setBusy(false);
+  }, [state]);
+
   async function analyze() {
     setBusy(true);
     setError(null);
@@ -41,6 +45,7 @@ export function ManagerPanel({ requestId, state, analysis }: Props) {
       setError(
         reason instanceof Error ? reason.message : "Manager analysis could not be completed.",
       );
+    } finally {
       setBusy(false);
     }
   }
@@ -66,11 +71,12 @@ export function ManagerPanel({ requestId, state, analysis }: Props) {
       router.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Your answers could not be saved.");
+    } finally {
       setBusy(false);
     }
   }
 
-  if (busy || state === "ANALYZING") {
+  if ((busy && (state === "SUBMITTED" || state === "ANALYZING")) || state === "ANALYZING") {
     return (
       <Card className="mt-6 overflow-hidden border-violet-400/15">
         <div className="flex items-start gap-4 p-6 sm:p-8">
