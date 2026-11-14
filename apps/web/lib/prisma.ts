@@ -10,7 +10,7 @@ const connectionString =
     ? undefined
     : "postgresql://auvra:auvra_local@localhost:55432/auvra?schema=public");
 if (!connectionString) throw new Error("DATABASE_URL is required in production.");
-const adapter = new PrismaPg({ connectionString });
+const adapter = new PrismaPg({ connectionString, max: 2 });
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 

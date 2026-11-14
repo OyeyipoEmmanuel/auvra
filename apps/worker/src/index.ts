@@ -29,7 +29,9 @@ async function main() {
   const redisUrl = process.env.REDIS_URL;
   if (!databaseUrl || !redisUrl) throw new Error("DATABASE_URL and REDIS_URL are required.");
 
-  const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  const db = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: databaseUrl, max: 2 }),
+  });
   const queues = createQueues(redisUrl);
   const workers = queueNames.map((name) => {
     const worker = new Worker<OutboxJob>(
