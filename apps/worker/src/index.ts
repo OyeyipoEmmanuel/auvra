@@ -6,6 +6,7 @@ import { Worker } from "bullmq";
 import { config } from "dotenv";
 
 import { observeBuyerJob } from "./marketplace/observe-buyer-job.js";
+import { startHealthServer } from "./health-server.js";
 import { handleOutboxJob } from "./orchestration/event-handler.js";
 import { parkExpiredExternalActions } from "./orchestration/external-actions.js";
 import {
@@ -40,6 +41,7 @@ async function main() {
     worker.on("failed", (job) => console.error(`${name} job failed: ${job?.id ?? "unknown"}`));
     return worker;
   });
+  const server = await startHealthServer();
 
   const workerId = randomUUID();
   let stopping = false;
@@ -98,12 +100,19 @@ async function main() {
   };
 
   let polling: Promise<void>;
-  const shutdown = async () => {
-    stopping = true;
-    await polling;
-    await Promise.all(workers.map((worker) => worker.close()));
-    await Promise.all(Object.values(queues).map((queue) => queue.close()));
-    await db.$disconnect();
+  let shutdownPromise: Promise<void> | undefined;
+  const shutdown = () => {
+    shutdownPromise ??= (async () => {
+      stopping = true;
+      await polling;
+      await Promise.all(workers.map((worker) => worker.close()));
+      await Promise.all(Object.values(queues).map((queue) => queue.close()));
+      await db.$disconnect();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    })();
+    return shutdownPromise;
   };
   process.once("SIGINT", () => void shutdown());
   process.once("SIGTERM", () => void shutdown());
