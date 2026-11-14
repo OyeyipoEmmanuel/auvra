@@ -31,4 +31,27 @@ describe("no-charge project receipt", () => {
     expect(changed.referenceHash).toBe(first.referenceHash);
     expect(changed.canonicalRecordHash).not.toBe(first.canonicalRecordHash);
   });
+
+  it("hashes real marketplace fractional match scores without losing precision", () => {
+    const scope = { selectedSuppliers: [{ serviceName: "Designer", score: 85.6 }] };
+    const first = noChargeProjectProof("project-1", { ...quote, scopeJson: scope });
+    expect(noChargeProjectProof("project-1", { ...quote, scopeJson: scope })).toEqual(first);
+    const changed = noChargeProjectProof("project-1", {
+      ...quote,
+      scopeJson: { selectedSuppliers: [{ score: 85.9, serviceName: "Designer" }] },
+    });
+    expect(changed.quoteHash).not.toBe(first.quoteHash);
+    expect(
+      noChargeProjectProof("project-1", {
+        ...quote,
+        scopeJson: { selectedSuppliers: [{ score: 85.6, serviceName: "Designer" }] },
+      }),
+    ).toEqual(first);
+  });
+
+  it("rejects invalid numbers and objects that could alias the decimal encoding", () => {
+    for (const value of [NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, { $auvraDecimal: "85.6" }]) {
+      expect(() => noChargeProjectProof("project-1", { ...quote, scopeJson: value })).toThrow();
+    }
+  });
 });

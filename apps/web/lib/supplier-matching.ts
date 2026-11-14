@@ -19,9 +19,8 @@ export function scoreSupplierCandidate(
 ): ScoredSupplierCandidate {
   const inferred = inferCapabilities(service);
   const required = task.capabilities.flatMap(capabilityTerms);
-  const capabilityMatches = required.filter((term) =>
-    inferred.some((value) => value.includes(term) || term.includes(value)),
-  );
+  const capabilityMatches = required.filter((term) => inferred.some((value) => value === term));
+  const taskEvidence = hasTaskSpecificEvidence(task, service);
   const priceMinor = service.price ? decimalToMinor(service.price.amount) : null;
   const observedAt = Date.parse(service.fetchedAt);
   const fresh =
@@ -35,6 +34,7 @@ export function scoreSupplierCandidate(
   if (capabilityMatches.length > 0)
     reasons.push(`Capability evidence: ${[...new Set(capabilityMatches)].slice(0, 4).join(", ")}.`);
   else reasons.push("No direct capability evidence for this task.");
+  if (!taskEvidence) reasons.push("This listing does not show the work required for this task.");
   if (service.availableNow === true) reasons.push("Provider reports available now.");
   else reasons.push("Provider is not currently confirmed available.");
   if (!fresh) reasons.push("Catalog observation is stale and must be refreshed.");
@@ -50,6 +50,7 @@ export function scoreSupplierCandidate(
 
   const eligible =
     capabilityMatches.length > 0 &&
+    taskEvidence &&
     fresh &&
     service.availableNow === true &&
     priceMinor != null &&
@@ -78,8 +79,7 @@ export function scoreSupplierCandidate(
 }
 
 export function inferCapabilities(service: NormalizedService) {
-  const text =
-    `${service.name} ${service.category ?? ""} ${service.description ?? ""}`.toLowerCase();
+  const text = serviceText(service);
   const vocabulary = [
     "research",
     "web research",
@@ -101,6 +101,9 @@ export function inferCapabilities(service: NormalizedService) {
     "lighthouse",
     "pagespeed",
     "web qa",
+    "test",
+    "tests",
+    "testing",
     "deployment",
     "data analysis",
     "data visualization",
@@ -109,7 +112,55 @@ export function inferCapabilities(service: NormalizedService) {
     "review",
     "audit",
   ];
-  return vocabulary.filter((term) => text.includes(term));
+  return vocabulary.filter((term) => hasPhrase(text, term));
+}
+
+function hasTaskSpecificEvidence(task: ManagerTask, service: NormalizedService) {
+  const text = serviceText(service);
+  const webSurface = ["landing page", "website", "web site", "web app", "frontend", "front end"];
+  if (task.key === "implementation" && task.capabilities.includes("frontend development")) {
+    return (
+      webSurface.some((term) => hasPhrase(text, term)) &&
+      [
+        "build",
+        "builds",
+        "building",
+        "builder",
+        "built",
+        "create",
+        "creates",
+        "develop",
+        "develops",
+        "implement",
+        "ready to publish",
+      ].some((term) => hasPhrase(text, term))
+    );
+  }
+  if (task.key === "qa_delivery" && task.capabilities.includes("web QA")) {
+    return (
+      webSurface.some((term) => hasPhrase(text, term)) &&
+      ["test", "tests", "testing", "qa", "quality assurance", "validate"].some((term) =>
+        hasPhrase(text, term),
+      )
+    );
+  }
+  return true;
+}
+
+function serviceText(service: NormalizedService) {
+  return ` ${`${service.name} ${service.category ?? ""} ${service.description ?? ""}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()} `;
+}
+
+function hasPhrase(text: string, phrase: string) {
+  const normalized = phrase.replace(/[^a-z0-9]+/g, " ");
+  return (
+    text.includes(` ${normalized} `) ||
+    (["website", "landing page", "web app"].includes(normalized) &&
+      text.includes(` ${normalized}s `))
+  );
 }
 
 export function decimalToMinor(value: string) {
@@ -153,10 +204,18 @@ function capabilityTerms(capability: string) {
     "content strategy": ["content", "copy", "business writing"],
     "web design": ["figma", "design", "ui", "ux"],
     "ui/ux": ["figma", "design", "ui", "ux"],
-    "frontend development": ["frontend", "website", "landing page", "code", "development"],
-    "responsive web": ["frontend", "website", "responsive", "code"],
-    "web qa": ["lighthouse", "pagespeed", "web qa", "quality assurance"],
-    deployment: ["deployment", "website", "development"],
+    "frontend development": ["frontend", "website", "landing page"],
+    "responsive web": ["frontend", "website", "landing page", "responsive"],
+    "web qa": [
+      "lighthouse",
+      "pagespeed",
+      "web qa",
+      "quality assurance",
+      "test",
+      "tests",
+      "testing",
+    ],
+    deployment: ["deployment"],
     "market research": ["market research", "research"],
     "web research": ["web research", "research"],
     "competitive analysis": ["competitive analysis", "market research", "research"],

@@ -64,6 +64,35 @@ export type ManagerAnalysis = {
   scopeRevision?: string;
 };
 
+export const internalQualityReviewNote =
+  "Auvra performs final quality review and delivery packaging; this is not a separate marketplace hire.";
+
+/** Older scoped requests included Auvra's own QA as a supplier task. */
+export function withInternalQualityReview(analysis: ManagerAnalysis): ManagerAnalysis {
+  if (!analysis.plan) return analysis;
+  const tasks = analysis.plan.tasks
+    .filter((task) => !["qa", "qa_delivery"].includes(task.key))
+    .map((task) =>
+      analysis.category === "landing_page" && task.key === "implementation"
+        ? {
+            ...task,
+            deliverables: [...new Set([...task.deliverables, "Delivery instructions"])],
+            acceptanceCriteria: [
+              ...new Set([
+                ...task.acceptanceCriteria,
+                "Source and usage instructions are included for Auvra's final review",
+              ]),
+            ],
+          }
+        : task,
+    );
+  if (tasks.length === 0) return analysis;
+  const assumptions = analysis.plan.assumptions.includes(internalQualityReviewNote)
+    ? analysis.plan.assumptions
+    : [...analysis.plan.assumptions, internalQualityReviewNote];
+  return { ...analysis, plan: { ...analysis.plan, tasks, assumptions } };
+}
+
 type AnalysisInput = {
   rawBrief: string;
   desiredOutcome: string | null;
@@ -473,23 +502,15 @@ function buildPlan(category: string, label: string, input: AnalysisInput) {
         "implementation",
         "Build the landing page",
         "Implement the approved experience as production-ready responsive code.",
-        ["Landing-page source code", "Reusable components"],
+        ["Landing-page source code", "Reusable components", "Delivery instructions"],
         [
           "Required sections and links work",
           "Layout is responsive",
           "No critical accessibility errors",
+          "Source and usage instructions are included for Auvra's final review",
         ],
         ["frontend development", "responsive web"],
         ["design"],
-      ),
-      task(
-        "qa_delivery",
-        "Validate and package delivery",
-        "Test the page against the scope and prepare the agreed delivery target.",
-        ["QA evidence", "Final source or deployment"],
-        ["Acceptance criteria pass", "Delivery instructions are included"],
-        ["web QA", "deployment"],
-        ["implementation"],
       ),
     ],
     competitor_research: [
@@ -559,6 +580,7 @@ function buildPlan(category: string, label: string, input: AnalysisInput) {
         ? [`Preferred deadline: ${input.deadline.toISOString().slice(0, 10)}.`]
         : ["No preferred deadline has been supplied."]),
       "Supplier availability and exact cost remain unverified until marketplace discovery.",
+      internalQualityReviewNote,
       ...(input.scopeRevision ? [`Requested scope change: ${input.scopeRevision}`] : []),
     ],
     tasks: (taskSets[category] ?? taskSets.general_service!).map((plannedTask) => ({
@@ -592,15 +614,6 @@ function genericPlan(
       ["All approved requirements are addressed", "The artifact uses the requested format"],
       capabilities,
       ["requirements"],
-    ),
-    task(
-      "qa",
-      "Validate and package delivery",
-      "Check the work against acceptance criteria and prepare the final handoff.",
-      ["QA record", "Final delivery package"],
-      ["Acceptance checks pass", "Limitations and usage instructions are documented"],
-      ["quality assurance"],
-      ["production"],
     ),
   ];
 }

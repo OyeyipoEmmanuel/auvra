@@ -26,7 +26,7 @@ import { LiveCheckoutPanel } from "@/components/live-checkout-panel";
 import { bachsPaymentMode } from "@/lib/payment-config";
 import { bachsReturnUrls } from "@/lib/bachs";
 import { requirePageUser } from "@/lib/authz";
-import { isManagerAnalysis } from "@/lib/manager-analysis";
+import { isManagerAnalysis, withInternalQualityReview } from "@/lib/manager-analysis";
 import { prisma } from "@/lib/prisma";
 import { StateDot } from "@/components/workspace-ui";
 import { RequestFileDownload } from "@/components/request-files";
@@ -83,7 +83,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const constraints = Array.isArray(request.constraintsJson)
     ? request.constraintsJson.filter((item): item is string => typeof item === "string")
     : [];
-  const analysis = isManagerAnalysis(request.analysisJson) ? request.analysisJson : null;
+  const storedAnalysis = isManagerAnalysis(request.analysisJson) ? request.analysisJson : null;
+  const hasLegacySupplierQa =
+    request.state === "SCOPED" &&
+    storedAnalysis?.plan?.tasks.some((task) => ["qa", "qa_delivery"].includes(task.key));
+  const analysis =
+    storedAnalysis && hasLegacySupplierQa
+      ? { ...withInternalQualityReview(storedAnalysis), discovery: undefined }
+      : storedAnalysis;
   const quote = request.quotes[0];
   const pendingBachsPayment =
     quote?.payments[0]?.state === "PENDING" &&
@@ -124,10 +131,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 ? "Your project workspace is ready. No charge was made or supplier hired."
                 : request.project && quote?.payments[0]?.provider === "BACHS"
                   ? "Your payment was verified and the project is ready. Supplier hiring remains a separate gated step."
-                  : statusDescription(
-                      request.state,
-                      process.env.AUVRA_RUNTIME_MODE === "DEMO_SANDBOX",
-                    )}
+                  : request.state === "SCOPED" && analysis?.discovery?.status === "NOT_AVAILABLE"
+                    ? "Supplier coverage is incomplete. Review the next steps below; no quote or supplier purchase has been made."
+                    : statusDescription(
+                        request.state,
+                        process.env.AUVRA_RUNTIME_MODE === "DEMO_SANDBOX",
+                      )}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

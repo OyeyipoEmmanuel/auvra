@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { analyzeServiceRequest } from "../apps/web/lib/manager-analysis.js";
+import {
+  analyzeServiceRequest,
+  internalQualityReviewNote,
+  withInternalQualityReview,
+} from "../apps/web/lib/manager-analysis.js";
 
 const baseRequest = {
   rawBrief: "Build a landing page for my business.",
@@ -34,9 +38,50 @@ describe("Auvra Manager analysis", () => {
       ],
     });
     expect(analysis.decision).toBe("SCOPED");
-    expect(analysis.plan?.tasks).toHaveLength(4);
+    expect(analysis.plan?.tasks).toHaveLength(3);
     expect(analysis.plan?.tasks[2]?.dependencies).toEqual(["design"]);
     expect(analysis.plan?.assumptions).toContain("Customer budget ceiling: USD 1000.00.");
+    expect(analysis.plan?.assumptions).toContain(internalQualityReviewNote);
+  });
+
+  it("moves QA from an older supplier plan into Auvra's internal review", () => {
+    const analysis = analyzeServiceRequest({
+      ...baseRequest,
+      answers: [
+        {
+          questionId: "sections_cta",
+          question: "Which sections?",
+          answer: "Hero, services, testimonials, and contact form.",
+          round: 1,
+        },
+      ],
+    });
+    const legacy = {
+      ...analysis,
+      plan: {
+        ...analysis.plan!,
+        tasks: [
+          ...analysis.plan!.tasks,
+          {
+            key: "qa_delivery",
+            title: "Validate and package delivery",
+            objective: "Check the page",
+            deliverables: ["QA record"],
+            acceptanceCriteria: ["Checks pass"],
+            capabilities: ["web QA"],
+            dependencies: ["implementation"],
+          },
+        ],
+      },
+    };
+    const normalized = withInternalQualityReview(legacy);
+    expect(normalized.plan?.tasks.map((task) => task.key)).toEqual([
+      "requirements",
+      "design",
+      "implementation",
+    ]);
+    expect(normalized.plan?.tasks[2]?.deliverables).toContain("Delivery instructions");
+    expect(normalized.plan?.assumptions).toContain(internalQualityReviewNote);
   });
 
   it("stops a clearly harmful request before supplier discovery", () => {

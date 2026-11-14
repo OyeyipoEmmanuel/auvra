@@ -3,7 +3,11 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 
 import { WorkerMarketplaceCatalog, type NormalizedService } from "@/lib/marketplace-catalog";
-import { isManagerAnalysis, type ManagerAnalysis } from "@/lib/manager-analysis";
+import {
+  isManagerAnalysis,
+  withInternalQualityReview,
+  type ManagerAnalysis,
+} from "@/lib/manager-analysis";
 import { prisma } from "@/lib/prisma";
 import { bachsUsdRailEnabled, liveUsdRailEnabled } from "@/lib/payment-config";
 import {
@@ -44,19 +48,26 @@ export async function discoverSuppliersAndQuote(requestId: string, customerId: s
   if (!isManagerAnalysis(candidateAnalysis)) {
     return { kind: "INVALID_STATE" as const, state: request.state };
   }
-  const plan = candidateAnalysis.plan;
+  const analysis = withInternalQualityReview(candidateAnalysis);
+  const plan = analysis.plan;
   if (!plan) return { kind: "INVALID_STATE" as const, state: request.state };
   if (process.env.AUVRA_RUNTIME_MODE === "LIVE_MARKET" && !liveUsdRailEnabled())
     return { kind: "FUNDING_RAIL_UNAVAILABLE" as const };
-  const analysis = candidateAnalysis;
   const quoteCurrency: "USD" | "USDC" = bachsUsdRailEnabled() ? "USD" : "USDC";
   const runId = crypto.randomUUID();
   const adapter = new WorkerMarketplaceCatalog(
     (process.env.NEAR_MARKET_BASE_URL ?? "https://market.near.ai").replace(/\/$/, ""),
   );
-  const categoryResults = await Promise.all(
-    catalogCategories.map((category) => adapter.listServices({ category })),
-  );
+  const categoryResults: NormalizedService[][] = [];
+  for (let index = 0; index < catalogCategories.length; index += 3) {
+    categoryResults.push(
+      ...(await Promise.all(
+        catalogCategories
+          .slice(index, index + 3)
+          .map((category) => adapter.listServices({ category })),
+      )),
+    );
+  }
   const services = deduplicateServices(categoryResults.flat());
   const observedAt = new Date();
 

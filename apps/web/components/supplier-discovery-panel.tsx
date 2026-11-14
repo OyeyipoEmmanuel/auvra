@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, LoaderCircle, RefreshCw, Search, Store } from "lucide-react";
 
@@ -13,7 +14,7 @@ import { Card } from "@/components/ui/card";
 export function SupplierDiscoveryPanel({
   requestId,
   state,
-  discovery,
+  discovery: initialDiscovery,
   budgetMinor,
   budgetCurrency,
 }: {
@@ -25,10 +26,20 @@ export function SupplierDiscoveryPanel({
 }) {
   const router = useRouter();
   const started = useRef(false);
-  const [busy, setBusy] = useState(state === "SCOPED" && !discovery);
+  const [busy, setBusy] = useState(state === "SCOPED" && !initialDiscovery);
+  const [latestDiscovery, setLatestDiscovery] = useState(initialDiscovery);
+  const discovery = latestDiscovery ?? initialDiscovery;
   const [error, setError] = useState<string | null>(null);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState("");
+
+  useEffect(() => {
+    setLatestDiscovery(initialDiscovery);
+  }, [initialDiscovery?.runId, requestId]);
+
+  useEffect(() => {
+    if (state === "SCOPED" && !initialDiscovery) started.current = false;
+  }, [state, initialDiscovery?.runId, requestId]);
 
   useEffect(() => {
     if (state !== "SCOPED" || discovery || started.current) return;
@@ -44,14 +55,25 @@ export function SupplierDiscoveryPanel({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/requests/${requestId}/discover`, { method: "POST" });
-      const data = (await response.json()) as { error?: { message?: string } };
+      const response = await fetch(`/api/requests/${requestId}/discover`, {
+        method: "POST",
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = (await response.json()) as {
+        discovery?: ManagerAnalysis["discovery"];
+        error?: { message?: string };
+      };
       if (!response.ok)
         throw new Error(data.error?.message ?? "Supplier discovery could not be completed.");
+      if (data.discovery) setLatestDiscovery(data.discovery);
       router.refresh();
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Supplier discovery could not be completed.",
+        reason instanceof Error && reason.name === "TimeoutError"
+          ? "Supplier search took too long. Please try again."
+          : reason instanceof Error
+            ? reason.message
+            : "Supplier discovery could not be completed.",
       );
     } finally {
       setBusy(false);
@@ -162,6 +184,15 @@ export function SupplierDiscoveryPanel({
               : "Supplier coverage verified"}
         </h2>
         <p className="mt-2 text-[15px] leading-6 text-zinc-500">{discovery.explanation}</p>
+        {busy && (
+          <p
+            role="status"
+            className="mt-4 flex items-center gap-2 text-[14px] text-violet-200"
+          >
+            <LoaderCircle className="size-4 animate-spin" />
+            Refreshing supplier listings and prices. This may take about a minute.
+          </p>
+        )}
         {overBudget && budgetMinor && budgetCurrency && (
           <div className="mt-5 grid gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[.04] p-4 sm:grid-cols-2 sm:p-5">
             <div>
@@ -221,7 +252,48 @@ export function SupplierDiscoveryPanel({
             ) : null}
           </div>
         )}
-        {budgetOpen && budgetCurrency && (
+        {unavailable && state === "SCOPED" && (
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/[.025] p-4 sm:p-5">
+            <h3 className="text-[16px] font-medium text-white">What can you do next?</h3>
+            <p className="mt-2 text-[14px] leading-6 text-zinc-400">
+              Auvra cannot quote this scope until every supplier task has coverage. Check the
+              marketplace again for new listings, raise your budget to expand priced matches, or
+              submit a different request.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button
+                type="button"
+                variant="violet"
+                disabled={busy}
+                onClick={() => void discover()}
+              >
+                {busy ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                {busy ? "Searching marketplace…" : "Check suppliers again"}
+              </Button>
+              {budgetMinor && budgetCurrency && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setBudgetOpen(true)}
+                >
+                  Increase budget
+                </Button>
+              )}
+              <Button
+                asChild
+                type="button"
+                variant="ghost"
+              >
+                <Link href="/app/requests/new">Start another request</Link>
+              </Button>
+            </div>
+          </div>
+        )}
+        {budgetOpen && (overBudget || unavailable) && budgetCurrency && (
           <form
             onSubmit={(event) => void increaseBudget(event)}
             className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5"
@@ -234,7 +306,7 @@ export function SupplierDiscoveryPanel({
             </label>
             <p className="mt-1 text-[14px] leading-5 text-zinc-500">
               Enter a higher amount. This changes your ceiling only; it does not pay or hire anyone.
-              If there is no quote yet, Auvra will recheck current supplier prices.
+              Auvra will recheck supplier prices, but a higher budget cannot guarantee coverage.
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
               <input
@@ -314,14 +386,18 @@ export function SupplierDiscoveryPanel({
           Observed {new Date(discovery.observedAt).toLocaleString()}. Catalog observations expire;
           no availability is reserved.
         </p>
-        {state === "SCOPED" && (
+        {state === "SCOPED" && !unavailable && (
           <Button
             onClick={() => void discover()}
             disabled={busy}
             variant="outline"
           >
-            <RefreshCw className="size-4" />
-            Search again
+            {busy ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            {busy ? "Searching marketplace…" : "Search again"}
           </Button>
         )}
       </div>

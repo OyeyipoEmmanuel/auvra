@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, CircleAlert, LoaderCircle, Sparkles } from "lucide-react";
 
-import type { ManagerAnalysis } from "@/lib/manager-analysis";
+import { internalQualityReviewNote, type ManagerAnalysis } from "@/lib/manager-analysis";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -231,10 +231,22 @@ export function ManagerPanel({ requestId, state, analysis }: Props) {
           </div>
         ))}
       </div>
+      {analysis.plan.assumptions.includes(internalQualityReviewNote) && (
+        <div className="border-t border-white/[.08] bg-emerald-400/[.025] p-6 sm:px-8">
+          <p className="text-[15px] font-medium text-zinc-200">Auvra quality review and handoff</p>
+          <p className="mt-2 text-[14px] leading-6 text-zinc-500">
+            Auvra reviews supplier outputs against the agreed checks and prepares the final handoff.
+            This is part of Auvra’s service, so it does not need a separate marketplace supplier.
+          </p>
+        </div>
+      )}
       <div className="border-t border-white/[.08] bg-black/20 p-6 sm:px-8">
         <p className="text-[14px] leading-5 text-zinc-600">
-          Next: Auvra will search genuine marketplace services, verify availability and prices, then
-          calculate a quote. This plan does not authorize spending.
+          {analysis.discovery
+            ? analysis.discovery.status === "NOT_AVAILABLE"
+              ? "Auvra checked the marketplace. Review the available next steps below; no quote or spending was authorized."
+              : "Auvra checked the marketplace. Review the supplier matches and quote below before deciding whether to proceed."
+            : "Next: Auvra will search genuine marketplace services, verify availability and prices, then calculate a quote. This plan does not authorize spending."}
         </p>
       </div>
     </Card>
