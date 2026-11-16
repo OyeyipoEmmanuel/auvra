@@ -49,18 +49,26 @@ async function main() {
   let stopping = false;
   let nextBuyerObservationAt = 0;
   let nextReceiptCheckAt = 0;
+  let nextActionSweepAt = 0;
   const poll = async () => {
     while (!stopping) {
+      let publishedWork = false;
       try {
-        const parked = await parkExpiredExternalActions(db);
-        if (parked > 0) console.warn(`External actions awaiting reconciliation: ${parked}`);
+        if (Date.now() >= nextActionSweepAt) {
+          nextActionSweepAt = Date.now() + 5 * 60_000;
+          const parked = await parkExpiredExternalActions(db);
+          if (parked > 0) console.warn(`External actions awaiting reconciliation: ${parked}`);
+        }
         const result = await publishOutboxBatch(db, queues, workerId);
-        if (result.claimed > 0) console.log(`Outbox publish: ${JSON.stringify(result)}`);
+        if (result.claimed > 0) {
+          publishedWork = true;
+          console.log(`Outbox publish: ${JSON.stringify(result)}`);
+        }
         if (
           process.env.AUVRA_TESTNET_RECEIPTS_ENABLED === "true" &&
           Date.now() >= nextReceiptCheckAt
         ) {
-          nextReceiptCheckAt = Date.now() + 30_000;
+          nextReceiptCheckAt = Date.now() + 5 * 60_000;
           try {
             await processTestnetProjectReceipts(db);
           } catch {
@@ -97,7 +105,7 @@ async function main() {
       } catch {
         console.error("Outbox publisher unavailable; retrying.");
       }
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      await new Promise((resolve) => setTimeout(resolve, publishedWork ? 2_000 : 30_000));
     }
   };
 
